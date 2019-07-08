@@ -1,6 +1,9 @@
 package main
 
+//go:generate sh -c "go install github.com/themakers/nowire && nowire go"
+
 import (
+	"context"
 	"net/http"
 	"os"
 	"time"
@@ -29,16 +32,18 @@ func main() {
 		lp2 := nowire.NewLocalPeer(log, nowire.NewPeerCallbacks(
 			func(rp nowire.RemotePeer) {
 				log.Info("Peer connected!")
-				NewGreeterClient(rp).Hello("a", func(data []Model) {
+				res := NewGreeterClient(rp).Hello("a", func(data []Model) string {
 					log.Info("2", zap.Any("i", data))
 					time.Sleep(100 * time.Millisecond)
-					os.Exit(0)
+					return "ajaja"
 				})
+				log.Info(res)
+				os.Exit(0)
 			},
 			func(id string) {},
 		))
 
-		if err := nowire.WebSocketConnect(lp2, "ws://localhost:7532"); err != nil {
+		if err := nowire.WebSocketConnect(context.TODO(), lp2, "ws://localhost:7532"); err != nil {
 			log.DPanic("Error initiating connection", zap.Error(err))
 		}
 	})()
@@ -51,7 +56,7 @@ type greeter struct {
 	peer Greeter
 }
 
-func (gr *greeter) Hello(name string, reply func(data []Model)) {
-	gr.log.Info("1", zap.String("i", name))
-	reply([]Model{{ID: "12121", Time: time.Now()}})
+func (gr *greeter) Hello(name string, reply func(data []Model) string) string {
+	gr.log.Info(name)
+	return reply([]Model{{ID: "12121", Time: time.Now()}})
 }

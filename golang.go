@@ -29,7 +29,7 @@ func Render(pkg string, ifcs []Interface) string {
 
 const tmpl = `
 {{define "clientImplStructName"}} impl_client_{{.Name}} {{end}}
-{{define "clientImplConstructorName"}} New{{.Name}}Client {{end}}
+{{define "clientImplConstructorName"}} Acquire{{.Name}} {{end}}
 
 {{define "fnArgs"}}{{range $i, $arg := .Args}} {{$arg.Name}} {{$arg.Type}}, {{end}}{{end}}
 {{define "fnRets"}}{{range $i, $ret := .Rets}} {{$ret.Name}} {{$ret.Type}}, {{end}}{{end}}
@@ -38,7 +38,7 @@ const tmpl = `
 {{define "fnRetsToCall"}}{{range $i, $ret := .Rets}} &{{$ret.Name}}, {{end}}{{end}}
 
 
-{{define "serverProxyFuncName"}} Register{{.Name}}Server {{end}}
+{{define "serverProxyFuncName"}} Register{{.Name}}Handler {{end}}
 
 package {{.Pkg}}
 
@@ -63,14 +63,14 @@ import (
 
 	{{range $i, $fn := $ifc.Methods}}
 		func (impl *{{template "clientImplStructName" $ifc}}) {{$fn.Name}}({{template "fnArgs" $fn}}) ({{template "fnRets" $fn}}) {
-			mtype, _ := reflect.TypeOf(impl).Elem().MethodByName("{{$fn.Name}}")
+			mtype, _ := reflect.TypeOf(impl).MethodByName("{{$fn.Name}}")
 			impl.peer.(nowire.RemotePeerGenerated).MakeOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", mtype.Type, []interface{}{ {{template "fnArgsToCall" $fn}} }, []interface{}{ {{template "fnRetsToCall" $fn}} })
 			return
 		}
 	{{end}}
 
 /****************************************************************
-** {{$ifc.Name}} Server
+** {{$ifc.Name}} Handler
 ********/
 
 	func {{template "serverProxyFuncName" $ifc}}(peer nowire.LocalPeer, constructor func(caller nowire.RemotePeer) {{$ifc.Name}}) {

@@ -1,6 +1,7 @@
 package nowire
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -8,18 +9,24 @@ import (
 )
 
 type DataChannel interface {
+	Context() context.Context
 	ReadMessage() (interface{}, error)
 	WriteMessage(interface{}) error
 	Close() error
 }
 
 type JSONDataChannel struct {
+	ctx context.Context
 	log *zap.Logger
 	dc  RawDataChannel
 }
 
-func NewJSONDataChannel(log *zap.Logger, dc RawDataChannel) DataChannel {
+func NewJSONDataChannel(ctx context.Context, log *zap.Logger, dc RawDataChannel) DataChannel {
 	return &JSONDataChannel{log: log, dc: dc}
+}
+
+func (c *JSONDataChannel) Context() context.Context {
+	return c.ctx
 }
 
 func (c *JSONDataChannel) ReadMessage() (interface{}, error) {

@@ -1,6 +1,7 @@
 package nowire
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -23,22 +24,22 @@ func WebSocketAcceptor(lp LocalPeer) http.Handler {
 		}
 		defer c.Close()
 
-		lp.HandleDataChannel(newWebSockerChan(lp.Log(), c))
+		lp.HandleDataChannel(newWebSockerChan(q.Context(), lp.Log(), c))
 	})
 }
 
-func WebSocketConnect(lp LocalPeer, addr string) error {
+func WebSocketConnect(ctx context.Context, lp LocalPeer, addr string) error {
 	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
 	if err != nil {
 		return err
 	}
 	defer c.Close()
 
-	return lp.HandleDataChannel(newWebSockerChan(lp.Log(), c))
+	return lp.HandleDataChannel(newWebSockerChan(ctx, lp.Log(), c))
 }
 
-func newWebSockerChan(log *zap.Logger, conn *websocket.Conn) DataChannel {
-	return NewJSONDataChannel(log, &webSocketChan{conn: conn})
+func newWebSockerChan(ctx context.Context, log *zap.Logger, conn *websocket.Conn) DataChannel {
+	return NewJSONDataChannel(ctx, log, &webSocketChan{conn: conn})
 }
 
 type webSocketChan struct {

@@ -1,6 +1,7 @@
 package nowire
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 ********/
 
 type RemotePeer interface {
+	Context() context.Context
 	run() error
 	close()
 }
@@ -72,6 +74,14 @@ func (rp *remotePeer) MakeOutgoingCall(ifc, method string, mtype reflect.Type, i
 	for i, outV := range outVs {
 		reflect.ValueOf(outs[i]).Elem().Set(outV)
 	}
+}
+
+/****************************************************************
+** Public interface
+********/
+
+func (rp *remotePeer) Context() context.Context {
+	return rp.dc.Context()
 }
 
 /****************************************************************

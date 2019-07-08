@@ -8,5 +8,5 @@ type Model struct {
 }
 
 type Greeter interface {
-	Hello(name string, reply func(data []Model))
+	Hello(name string, reply func(data []Model) string) string
 }
