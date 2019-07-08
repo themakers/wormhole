@@ -1,4 +1,4 @@
-package nowire
+package wormhole
 
 import (
 	"go.uber.org/zap"

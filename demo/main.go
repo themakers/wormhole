@@ -1,6 +1,6 @@
 package main
 
-//go:generate sh -c "go install github.com/themakers/nowire && nowire go"
+//go:generate sh -c "go install github.com/themakers/wormhole && wormhole go"
 
 import (
 	"context"
@@ -10,15 +10,15 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/themakers/nowire/nowire"
+	"github.com/themakers/wormhole/wormhole"
 )
 
 func main() {
-	log := nowire.NewZapLogger(true).Named("peer-1")
+	log := wormhole.NewZapLogger(true).Named("peer-1")
 
-	lp1 := nowire.NewLocalPeer(log, nil)
+	lp1 := wormhole.NewLocalPeer(log, nil)
 
-	RegisterGreeterServer(lp1, func(rp nowire.RemotePeer) Greeter {
+	RegisterGreeterServer(lp1, func(rp wormhole.RemotePeer) Greeter {
 		return &greeter{
 			log:  log,
 			peer: NewGreeterClient(rp),
@@ -27,10 +27,10 @@ func main() {
 
 	go (func() {
 		time.Sleep(100 * time.Millisecond)
-		log := nowire.NewZapLogger(true).Named("peer-2")
+		log := wormhole.NewZapLogger(true).Named("peer-2")
 
-		lp2 := nowire.NewLocalPeer(log, nowire.NewPeerCallbacks(
-			func(rp nowire.RemotePeer) {
+		lp2 := wormhole.NewLocalPeer(log, wormhole.NewPeerCallbacks(
+			func(rp wormhole.RemotePeer) {
 				log.Info("Peer connected!")
 				res := NewGreeterClient(rp).Hello("a", func(data []Model) string {
 					log.Info("2", zap.Any("i", data))
@@ -43,12 +43,12 @@ func main() {
 			func(id string) {},
 		))
 
-		if err := nowire.WebSocketConnect(context.TODO(), lp2, "ws://localhost:7532"); err != nil {
+		if err := wormhole.WebSocketConnect(context.TODO(), lp2, "ws://localhost:7532"); err != nil {
 			log.DPanic("Error initiating connection", zap.Error(err))
 		}
 	})()
 
-	http.ListenAndServe(":7532", nowire.WebSocketAcceptor(lp1))
+	http.ListenAndServe(":7532", wormhole.WebSocketAcceptor(lp1))
 }
 
 type greeter struct {
