@@ -59,9 +59,7 @@ import (
 
 	{{range $i, $fn := $ifc.Methods}}
 		func (impl *{{template "clientImplStructName" $ifc}}) {{$fn.Name}}(ctx context.Context, arg {{$fn.Arg}}) (ret {{$fn.Ret}}, err error) {
-			//mt, _ := reflect.TypeOf(impl).MethodByName("{{$fn.Name}}")
-			err = impl.peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
-			return
+			return ret, impl.peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
 		}
 	{{end}}
 

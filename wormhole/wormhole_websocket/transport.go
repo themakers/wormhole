@@ -33,7 +33,7 @@ func Acceptor(lp wormhole.LocalPeer) http.Handler {
 }
 
 func Connect(ctx context.Context, lp wormhole.LocalPeer, addr string) error {
-	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
+	c, _, err := websocket.DefaultDialer.DialContext(ctx, addr, nil)
 	if err != nil {
 		return err
 	}

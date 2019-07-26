@@ -14,6 +14,9 @@ import (
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	log, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
@@ -26,7 +29,7 @@ func main() {
 		lp2 := wormhole.NewLocalPeer(log, wormhole.NewPeerCallbacks(
 			func(rp wormhole.RemotePeer) {
 				log.Info("Peer connected!")
-				res, err := AcquireGreeter(rp).Hello(context.TODO(), GreeterHelloReq{
+				res, err := AcquireGreeter(rp).Hello(ctx, GreeterHelloReq{
 					Name: "Jun",
 					NameChanged: func(ctx context.Context, data string) (string, error) {
 						log.Info("AJAJA2", zap.String("name", data))
@@ -34,12 +37,13 @@ func main() {
 					},
 				})
 				log.Info("DONE", zap.Any("res", res), zap.Error(err))
-				// os.Exit(0)
+				cancel()
+				//os.Exit(0)
 			},
 			func(id string) {},
 		))
 
-		if err := wormhole_websocket.Connect(context.TODO(), lp2, "ws://localhost:7532"); err != nil {
+		if err := wormhole_websocket.Connect(ctx, lp2, "ws://localhost:7532"); err != nil && err != context.Canceled {
 			log.Panic("Error initiating connection", zap.Error(err))
 		}
 	})()
@@ -55,8 +59,18 @@ func main() {
 			}
 		})
 
-		if err := http.ListenAndServe("localhost:7532", wormhole_websocket.Acceptor(lp1)); err != nil {
-			log.Panic("Error listening", zap.Error(err))
+		s := http.Server{
+			Addr:    "localhost:7532",
+			Handler: wormhole_websocket.Acceptor(lp1),
+		}
+
+		go (func() {
+			<-ctx.Done()
+			s.Shutdown(ctx)
+		})()
+
+		if err := s.ListenAndServe(); err != nil {
+			log.Error("Error listening", zap.Error(err))
 		}
 	}
 }
@@ -68,15 +82,9 @@ type greeter struct {
 
 func (gr *greeter) Hello(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error) {
 	gr.log.Info("AJAJA", zap.String("name", q.Name))
-	n, err := q.NameChanged(ctx, "Hello, " + q.Name + "!")
+	n, err := q.NameChanged(ctx, "Hello, "+q.Name+"!")
 
 	return GreeterHelloResp{
 		Name: "!!!!!" + n,
 	}, err
-}
-
-func (gr *greeter) Hello12(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error) {
-	gr.log.Info(q.Name)
-	q.NameChanged(ctx, time.Now().String())
-	return GreeterHelloResp{}, nil
 }

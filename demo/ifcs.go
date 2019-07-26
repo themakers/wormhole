@@ -12,12 +12,6 @@ type Model struct {
 
 type Greeter interface {
 	Hello(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)
-	Hello12(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)
-}
-
-type Greeter2 interface {
-	Hello21(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)
-	Hello22(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)
 }
 
 type GreeterHelloReq struct {
@@ -26,6 +20,6 @@ type GreeterHelloReq struct {
 }
 
 type GreeterHelloResp struct {
-	Name  string
+	Name string
 	// Reply func(ctx context.Context, data string) (string, error) // TODO
 }
