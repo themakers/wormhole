@@ -13,7 +13,11 @@
 .idea
 *.iml
 
+.DS_Store
+
 /cmd/wormhole/wormhole
+
+/parsex/demo/demo
 
 /demo/demo
 

@@ -1,15 +1,16 @@
-package wormhole
+package main
 
 import (
 	"bytes"
+	"github.com/themakers/wormhole/parsex"
 	"text/template"
 )
 
-func Render(pkg string, ifcs []Interface) string {
+func Render(pkg string, ifcs []*parsex.Interface) string {
 
 	model := struct {
 		Pkg  string
-		Ifcs []Interface
+		Ifcs []*parsex.Interface
 	}{
 		Pkg:  pkg,
 		Ifcs: ifcs,
@@ -22,28 +23,23 @@ func Render(pkg string, ifcs []Interface) string {
 
 	buf := bytes.NewBuffer([]byte{})
 
-	t.Execute(buf, model)
+	if err := t.Execute(buf, model); err != nil {
+		panic(err)
+	}
 
 	return buf.String()
 }
 
 const tmpl = `
-{{define "clientImplStructName"}} impl_client_{{.Name}} {{end}}
+{{define "clientImplStructName"}} wormhole{{.Name}}ClientImpl {{end}}
 {{define "clientImplConstructorName"}} Acquire{{.Name}} {{end}}
-
-{{define "fnArgs"}}{{range $i, $arg := .Args}} {{$arg.Name}} {{$arg.Type}}, {{end}}{{end}}
-{{define "fnRets"}}{{range $i, $ret := .Rets}} {{$ret.Name}} {{$ret.Type}}, {{end}}{{end}}
-
-{{define "fnArgsToCall"}}{{range $i, $arg := .Args}} {{$arg.Name}}, {{end}}{{end}}
-{{define "fnRetsToCall"}}{{range $i, $ret := .Rets}} &{{$ret.Name}}, {{end}}{{end}}
-
 
 {{define "serverProxyFuncName"}} Register{{.Name}}Handler {{end}}
 
 package {{.Pkg}}
 
 import (
-	"github.com/themakers/nowire/nowire"
+	"github.com/themakers/wormhole/wormhole"
 )
 
 {{range $i, $ifc := .Ifcs}}
@@ -54,17 +50,17 @@ import (
 	var _ {{$ifc.Name}} = (*{{template "clientImplStructName" $ifc}})(nil)
 
 	type {{template "clientImplStructName" $ifc}} struct {
-		peer nowire.RemotePeer
+		peer wormhole.RemotePeer
 	}
 
-	func {{template "clientImplConstructorName" $ifc}}(peer nowire.RemotePeer) {{$ifc.Name}} {
+	func {{template "clientImplConstructorName" $ifc}}(peer wormhole.RemotePeer) {{$ifc.Name}} {
 		return &{{template "clientImplStructName" $ifc}}{peer: peer}
 	}
 
 	{{range $i, $fn := $ifc.Methods}}
-		func (impl *{{template "clientImplStructName" $ifc}}) {{$fn.Name}}({{template "fnArgs" $fn}}) ({{template "fnRets" $fn}}) {
-			mtype, _ := reflect.TypeOf(impl).MethodByName("{{$fn.Name}}")
-			impl.peer.(nowire.RemotePeerGenerated).MakeOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", mtype.Type, []interface{}{ {{template "fnArgsToCall" $fn}} }, []interface{}{ {{template "fnRetsToCall" $fn}} })
+		func (impl *{{template "clientImplStructName" $ifc}}) {{$fn.Name}}(ctx context.Context, arg {{$fn.Arg}}) (ret {{$fn.Ret}}, err error) {
+			//mt, _ := reflect.TypeOf(impl).MethodByName("{{$fn.Name}}")
+			err = impl.peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
 			return
 		}
 	{{end}}
@@ -73,13 +69,13 @@ import (
 ** {{$ifc.Name}} Handler
 ********/
 
-	func {{template "serverProxyFuncName" $ifc}}(peer nowire.LocalPeer, constructor func(caller nowire.RemotePeer) {{$ifc.Name}}) {
-		peer.(nowire.LocalPeerGenerated).RegisterInterface("{{$ifc.Name}}", func(caller nowire.RemotePeer) {
+	func {{template "serverProxyFuncName" $ifc}}(peer wormhole.LocalPeer, constructor func(caller wormhole.RemotePeer) {{$ifc.Name}}) {
+		peer.(wormhole.LocalPeerGenerated).RegisterInterface("{{$ifc.Name}}", func(caller wormhole.RemotePeer) {
 			ifc := constructor(caller)
 			val := reflect.ValueOf(ifc)
 			
 			{{range $i, $fn := $ifc.Methods}}
-			caller.(nowire.RemotePeerGenerated).RegisterMethod("{{$ifc.Name}}", "{{$fn.Name}}", val.MethodByName("{{$fn.Name}}")) {{end}}
+			caller.(wormhole.RemotePeerGenerated).RegisterRootRef("{{$ifc.Name}}", "{{$fn.Name}}", val.MethodByName("{{$fn.Name}}")) {{end}}
 		})
 	}
 

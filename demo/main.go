@@ -1,11 +1,11 @@
 package main
 
-//go:generate sh -c "go install github.com/themakers/wormhole && wormhole go"
+//go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
 
 import (
 	"context"
+	"github.com/themakers/wormhole/wormhole/wormhole_websocket"
 	"net/http"
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -14,41 +14,51 @@ import (
 )
 
 func main() {
-	log := wormhole.NewZapLogger(true).Named("peer-1")
-
-	lp1 := wormhole.NewLocalPeer(log, nil)
-
-	RegisterGreeterServer(lp1, func(rp wormhole.RemotePeer) Greeter {
-		return &greeter{
-			log:  log,
-			peer: NewGreeterClient(rp),
-		}
-	})
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
 
 	go (func() {
+		log := log.Named("peer-2")
 		time.Sleep(100 * time.Millisecond)
-		log := wormhole.NewZapLogger(true).Named("peer-2")
 
 		lp2 := wormhole.NewLocalPeer(log, wormhole.NewPeerCallbacks(
 			func(rp wormhole.RemotePeer) {
 				log.Info("Peer connected!")
-				res := NewGreeterClient(rp).Hello("a", func(data []Model) string {
-					log.Info("2", zap.Any("i", data))
-					time.Sleep(100 * time.Millisecond)
-					return "ajaja"
+				res, err := AcquireGreeter(rp).Hello(context.TODO(), GreeterHelloReq{
+					Name: "Jun",
+					NameChanged: func(ctx context.Context, data string) (string, error) {
+						log.Info("AJAJA2", zap.String("name", data))
+						return "+" + data + "+", nil
+					},
 				})
-				log.Info(res)
-				os.Exit(0)
+				log.Info("DONE", zap.Any("res", res), zap.Error(err))
+				// os.Exit(0)
 			},
 			func(id string) {},
 		))
 
-		if err := wormhole.WebSocketConnect(context.TODO(), lp2, "ws://localhost:7532"); err != nil {
-			log.DPanic("Error initiating connection", zap.Error(err))
+		if err := wormhole_websocket.Connect(context.TODO(), lp2, "ws://localhost:7532"); err != nil {
+			log.Panic("Error initiating connection", zap.Error(err))
 		}
 	})()
 
-	http.ListenAndServe(":7532", wormhole.WebSocketAcceptor(lp1))
+	{
+		log := log.Named("peer-1")
+		lp1 := wormhole.NewLocalPeer(log, nil)
+
+		RegisterGreeterHandler(lp1, func(rp wormhole.RemotePeer) Greeter {
+			return &greeter{
+				log:  log,
+				peer: AcquireGreeter(rp),
+			}
+		})
+
+		if err := http.ListenAndServe("localhost:7532", wormhole_websocket.Acceptor(lp1)); err != nil {
+			log.Panic("Error listening", zap.Error(err))
+		}
+	}
 }
 
 type greeter struct {
@@ -56,7 +66,17 @@ type greeter struct {
 	peer Greeter
 }
 
-func (gr *greeter) Hello(name string, reply func(data []Model) string) string {
-	gr.log.Info(name)
-	return reply([]Model{{ID: "12121", Time: time.Now()}})
+func (gr *greeter) Hello(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error) {
+	gr.log.Info("AJAJA", zap.String("name", q.Name))
+	n, err := q.NameChanged(ctx, "Hello, " + q.Name + "!")
+
+	return GreeterHelloResp{
+		Name: "!!!!!" + n,
+	}, err
+}
+
+func (gr *greeter) Hello12(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error) {
+	gr.log.Info(q.Name)
+	q.NameChanged(ctx, time.Now().String())
+	return GreeterHelloResp{}, nil
 }

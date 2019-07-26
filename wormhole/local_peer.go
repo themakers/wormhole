@@ -1,6 +1,9 @@
 package wormhole
 
-import "go.uber.org/zap"
+import (
+	"github.com/themakers/wormhole/wormhole/internal/remote_peer"
+	"go.uber.org/zap"
+)
 
 /****************************************************************
 ** IFC LocalPeer
@@ -23,13 +26,19 @@ func NewLocalPeer(log *zap.Logger, cbs PeerCallbacks) LocalPeer {
 }
 
 type LocalPeer interface {
-	HandleDataChannel(ch DataChannel) error
-
 	Log() *zap.Logger
 }
 
 type LocalPeerGenerated interface {
+	LocalPeer
+
 	RegisterInterface(ifc string, constructor func(caller RemotePeer))
+}
+
+type LocalPeerTransport interface {
+	LocalPeer
+
+	HandleDataChannel(ch DataChannel) error
 }
 
 type PeerCallbacks interface {
@@ -62,7 +71,7 @@ type localPeer struct {
 	log *zap.Logger
 	cbs PeerCallbacks
 
-	ctors []func(RemotePeer)
+	ctors []func(peer RemotePeer)
 }
 
 func (lp *localPeer) RegisterInterface(ifc string, constructor func(caller RemotePeer)) {
@@ -70,9 +79,9 @@ func (lp *localPeer) RegisterInterface(ifc string, constructor func(caller Remot
 }
 
 func (lp *localPeer) HandleDataChannel(dc DataChannel) error {
-	rp := newRemotePeer(lp.log, dc)
+	rp := remote_peer.NewRemotePeer(lp.log, dc)
 
-	defer rp.close()
+	defer rp.Close()
 
 	for _, ctor := range lp.ctors {
 		ctor(rp)
@@ -80,10 +89,10 @@ func (lp *localPeer) HandleDataChannel(dc DataChannel) error {
 
 	go lp.cbs.OnPeerConnected(rp)
 	defer (func() {
-		lp.cbs.OnPeerDisconnected("")
+		go lp.cbs.OnPeerDisconnected("")
 	})()
 
-	return rp.run()
+	return rp.ReceiverWorker()
 }
 
 func (lp *localPeer) Log() *zap.Logger { return lp.log }
