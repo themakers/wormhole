@@ -26,7 +26,7 @@ func main() {
 		log := log.Named("peer-2")
 		time.Sleep(100 * time.Millisecond)
 
-		lp2 := wormhole.NewLocalPeer(log, wormhole.NewPeerCallbacks(
+		lp2 := wormhole.NewLocalPeer(wormhole.NewPeerCallbacks(
 			func(rp wormhole.RemotePeer) {
 				log.Info("Peer connected!")
 				res, err := AcquireGreeter(rp).Hello(ctx, GreeterHelloReq{
@@ -49,7 +49,7 @@ func main() {
 
 	{
 		log := log.Named("peer-1")
-		lp1 := wormhole.NewLocalPeer(log, nil)
+		lp1 := wormhole.NewLocalPeer(nil)
 
 		RegisterGreeterHandler(lp1, func(rp wormhole.RemotePeer) Greeter {
 			return &greeter{

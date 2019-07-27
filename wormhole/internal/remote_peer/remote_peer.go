@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/rs/xid"
-	"go.uber.org/zap"
 )
 
 func fmtMethod(ifc, method string) string {
@@ -34,9 +33,8 @@ type RemotePeerGenerated interface {
 ** IMPL
 ********/
 
-func NewRemotePeer(log *zap.Logger, dc base.DataChannel) RemotePeer {
+func NewRemotePeer(dc base.DataChannel) RemotePeer {
 	rp := &remotePeer{
-		log: log,
 		dc:  dc,
 	}
 
@@ -54,8 +52,6 @@ var (
 )
 
 type remotePeer struct {
-	log *zap.Logger
-
 	dc base.DataChannel
 
 	refs          refs
@@ -68,8 +64,6 @@ type remotePeer struct {
 
 func (rp *remotePeer) RegisterRootRef(ifc, method string, ref reflect.Value) {
 	methodName := fmtMethod(ifc, method)
-
-	rp.log.Info("registering method", zap.String("name", methodName), zap.Stringer("ref", ref))
 
 	rp.refs.put(methodName, ref, true)
 }
@@ -166,7 +160,7 @@ func (rp *remotePeer) handleProtocolMessage(msg interface{}, errorsCh chan error
 			errorsCh <- err
 		}
 	default:
-		rp.log.Panic("shit happened", zap.Stringer("msg", reflect.TypeOf(msg)))
+		panic("shit happened")
 	}
 }
 

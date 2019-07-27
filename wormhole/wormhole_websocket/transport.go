@@ -1,3 +1,5 @@
+// +build !js,!wasm
+
 package wormhole_websocket
 
 import (
@@ -7,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 )
 
 func Acceptor(lp wormhole.LocalPeer) http.Handler {
@@ -21,12 +22,12 @@ func Acceptor(lp wormhole.LocalPeer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, q *http.Request) {
 		c, err := upgrader.Upgrade(w, q, nil)
 		if err != nil {
-			lp.Log().Panic("error during websocket upgrade", zap.Error(err))
+			panic(err)
 		}
 		defer c.Close()
 
-		if err := lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(q.Context(), lp.Log(), c)); err != nil {
-			lp.Log().Panic("error serving websocket", zap.Error(err))
+		if err := lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(q.Context(), c)); err != nil {
+			panic(err)
 		}
 	})
 }
@@ -38,14 +39,14 @@ func Connect(ctx context.Context, lp wormhole.LocalPeer, addr string) error {
 	}
 	defer c.Close()
 
-	return lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(ctx, lp.Log(), c))
+	return lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(ctx, c))
 }
 
 ////////////////////////////////////////////////////////////////
 //// Implementation
 ////
 
-func newWebSocketChan(ctx context.Context, log *zap.Logger, conn *websocket.Conn) wormhole.DataChannel {
+func newWebSocketChan(ctx context.Context, conn *websocket.Conn) wormhole.DataChannel {
 	return &webSocketChan{
 		ctx:  ctx,
 		conn: conn,

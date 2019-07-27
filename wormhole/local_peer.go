@@ -2,16 +2,14 @@ package wormhole
 
 import (
 	"github.com/themakers/wormhole/wormhole/internal/remote_peer"
-	"go.uber.org/zap"
 )
 
 /****************************************************************
 ** IFC LocalPeer
 ********/
 
-func NewLocalPeer(log *zap.Logger, cbs PeerCallbacks) LocalPeer {
+func NewLocalPeer(cbs PeerCallbacks) LocalPeer {
 	lp := &localPeer{
-		log: log,
 		cbs: cbs,
 	}
 
@@ -26,7 +24,7 @@ func NewLocalPeer(log *zap.Logger, cbs PeerCallbacks) LocalPeer {
 }
 
 type LocalPeer interface {
-	Log() *zap.Logger
+	__localPeer()
 }
 
 type LocalPeerGenerated interface {
@@ -68,7 +66,6 @@ var (
 )
 
 type localPeer struct {
-	log *zap.Logger
 	cbs PeerCallbacks
 
 	ctors []func(peer RemotePeer)
@@ -79,7 +76,7 @@ func (lp *localPeer) RegisterInterface(ifc string, constructor func(caller Remot
 }
 
 func (lp *localPeer) HandleDataChannel(dc DataChannel) error {
-	rp := remote_peer.NewRemotePeer(lp.log, dc)
+	rp := remote_peer.NewRemotePeer(dc)
 
 	defer rp.Close()
 
@@ -95,4 +92,4 @@ func (lp *localPeer) HandleDataChannel(dc DataChannel) error {
 	return rp.ReceiverWorker()
 }
 
-func (lp *localPeer) Log() *zap.Logger { return lp.log }
+func (lp *localPeer) __localPeer() {}
