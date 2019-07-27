@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/themakers/wormhole/wormhole"
 	"github.com/themakers/wormhole/wormhole/json_format"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -65,9 +64,13 @@ type webSocketChan struct {
 func (c *webSocketChan) ReadMessage() (interface{}, error) {
 	_, data, err := c.conn.ReadMessage()
 	if err != nil {
-		return nil, err
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+			return nil, err
+		} else {
+			return nil, wormhole.ErrPeerGone
+		}
 	}
-	log.Println(">>> incoming:", string(data))
+
 	return c.wfh.Unmarshal(data)
 }
 
@@ -76,7 +79,7 @@ func (c *webSocketChan) WriteMessage(m interface{}) error {
 	if err != nil {
 		return err
 	}
-	log.Println(">>> outgoing:", string(data))
+
 	return c.conn.WriteMessage(websocket.BinaryMessage, data)
 }
 

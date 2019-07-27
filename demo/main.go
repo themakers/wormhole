@@ -38,7 +38,6 @@ func main() {
 				})
 				log.Info("DONE", zap.Any("res", res), zap.Error(err))
 				cancel()
-				//os.Exit(0)
 			},
 			func(id string) {},
 		))

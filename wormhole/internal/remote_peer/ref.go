@@ -2,7 +2,6 @@ package remote_peer
 
 import (
 	"context"
-	"log"
 	"reflect"
 	"strings"
 )
@@ -40,7 +39,6 @@ func (r ref) call(ctx context.Context, args []reflect.Value) ([]reflect.Value, e
 		args = []reflect.Value{arg}
 	}
 
-	log.Println("CALL!", r.name, ctx, args)
 	rets := r.val.Call(append(
 		[]reflect.Value{reflect.ValueOf(ctx)},
 		args...,

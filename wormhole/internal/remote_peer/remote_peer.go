@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/themakers/wormhole/wormhole/internal/base"
 	"github.com/themakers/wormhole/wormhole/internal/proto"
-	"log"
 	"reflect"
 
 	"github.com/rs/xid"
@@ -70,7 +69,7 @@ type remotePeer struct {
 func (rp *remotePeer) RegisterRootRef(ifc, method string, ref reflect.Value) {
 	methodName := fmtMethod(ifc, method)
 
-	rp.log.Info(">> Registering val", zap.String("name", methodName), zap.Stringer("ref", ref))
+	rp.log.Info("registering method", zap.String("name", methodName), zap.Stringer("ref", ref))
 
 	rp.refs.put(methodName, ref, true)
 }
@@ -116,8 +115,6 @@ func (rp *remotePeer) Close() {
 }
 
 func (rp *remotePeer) ReceiverWorker() error {
-	rp.log.Debug("Running remote peer handler")
-
 	var (
 		ctx, cancel = context.WithCancel(rp.dc.Context())
 		msgsCh      = make(chan interface{}, 128)
@@ -136,7 +133,6 @@ func (rp *remotePeer) ReceiverWorker() error {
 
 			msg, err := rp.dc.ReadMessage()
 			if err != nil {
-				rp.log.Error("Error reading message from channel", zap.Error(err))
 				errorsCh <- err
 				return
 			}
@@ -150,8 +146,7 @@ func (rp *remotePeer) ReceiverWorker() error {
 			if err != nil {
 				return err
 			} else {
-				// TODO
-				// rp.log.Warn("",)
+				// TODO Warn
 			}
 		case <-ctx.Done():
 			return ctx.Err()
@@ -224,7 +219,6 @@ func (rp *remotePeer) makeOutgoingCall(methodName string, mtype reflect.Type, ro
 		//	//res.
 		//	outs = append(outs, v.Elem())
 		//}
-		log.Printf("RESSSSSS! %#v %#v", result.Vals, result.Error)
 
 		//> Convert results
 		outs = rp.valsRemote2Local(methodRetTypes(mtype, root), result.Vals)
@@ -235,15 +229,11 @@ func (rp *remotePeer) makeOutgoingCall(methodName string, mtype reflect.Type, ro
 }
 
 func (rp *remotePeer) handleIncomingResult(result *proto.ResultMsg) error {
-	rp.log.Debug("Got INCOMING res", zap.Any("result", result))
 
 	if call, ok := rp.outgoingCalls.get(result.Call); ok {
 		call.res <- result.Result
 	} else {
-		err := fmt.Errorf("Pending outgoingCall not found: %s", result.Call)
-
-		rp.log.DPanic("Error handling results", zap.Error(err))
-
+		err := fmt.Errorf("pending outgoingCall not found: %s", result.Call)
 		return err
 	}
 	return nil
@@ -254,7 +244,6 @@ func (rp *remotePeer) handleIncomingResult(result *proto.ResultMsg) error {
 ********/
 
 func (rp *remotePeer) handleIncomingCall(call *proto.CallMsg) error {
-	rp.log.Debug("Got INCOMING call", zap.Any("call", call))
 
 	if ref, ok := rp.refs.get(call.Ref); ok {
 
@@ -283,7 +272,6 @@ func (rp *remotePeer) handleIncomingCall(call *proto.CallMsg) error {
 
 	} else {
 		err := fmt.Errorf("ref not found: %s", call.Ref)
-		rp.log.DPanic("Error handling outgoingCall", zap.Error(err))
 		return err
 	}
 }
@@ -324,8 +312,6 @@ func (rp *remotePeer) makeFuncThatMakesOutgoingCall(ref string, t reflect.Type) 
 		ctx := ins[0].Interface().(context.Context)
 		outs, remoteErr, err := rp.makeOutgoingCall(ref, t, false, ctx, ins[1:])
 
-		log.Printf("1234567890 %#v - %#v - %#v", outs, remoteErr, err)
-
 		//> Last result is always an error
 		if err != nil {
 			return populateDefaultOuts(t, err)
@@ -363,7 +349,7 @@ func methodRetTypes(t reflect.Type, root bool) (types []reflect.Type) {
 			types = append(types, t.Out(i))
 		}
 	}
-	log.Println(root, t, types)
+
 	return
 }
 
