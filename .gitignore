@@ -19,5 +19,6 @@
 
 /parsex/demo/demo
 
-/demo/demo
+/demo/client/client
+/demo/server/server
 

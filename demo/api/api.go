@@ -1,4 +1,6 @@
-package main
+package api
+
+//go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
 
 import (
 	"context"
@@ -15,11 +17,11 @@ type Greeter interface {
 }
 
 type GreeterHelloReq struct {
-	Name        string
-	NameChanged func(ctx context.Context, data string) (string, error)
+	Message     string
+	CallableRef func(ctx context.Context, data string) (string, error)
 }
 
 type GreeterHelloResp struct {
-	Name string
+	Message string
 	// Reply func(ctx context.Context, data string) (string, error) // TODO
 }

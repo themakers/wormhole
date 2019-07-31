@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"text/template"
 
 	"golang.org/x/tools/imports"
 )
@@ -56,7 +57,12 @@ func main() {
 			os.Rename(outFile, bcpFile)
 			defer (func() {
 				if rec := recover(); rec != nil {
-					log.Printf("PANIC: %#v\n%s", rec, debug.Stack())
+					stack := string(debug.Stack())
+					if err, ok := rec.(template.ExecError); ok {
+						log.Printf("PANIC: %#v\n", err.Err)
+					} else {
+						log.Printf("PANIC: %#v\n%s", rec, stack)
+					}
 					//os.Remove(outFile)
 					//os.Rename(bcpFile, outFile)
 				} else {

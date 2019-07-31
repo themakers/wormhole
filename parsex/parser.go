@@ -58,7 +58,7 @@ func Parse(files ...string) (*Parsed, error) {
 		//})()
 
 		//pkgPath := strings.TrimPrefix(strings.TrimSuffix(strings.TrimSuffix(file, filepath.Base(file)), "/"), GOSRC+"/")
-		//pkgName := f.Name.Name
+		//pkgName := f.Message.Message
 
 		fmt.Println(strings.Repeat("•", 64))
 		astwalker.WalkAST(f, nil, testWalker()).Root().Children()[0].Children()

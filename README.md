@@ -3,6 +3,7 @@
 
 #### TODO
  - [ ] WASM/GopherJS readiness
+ - [ ] Implement handshake phase?
 
 #### Why?
  * GRPC

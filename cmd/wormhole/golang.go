@@ -33,12 +33,16 @@ func Render(pkg string, ifcs []*parsex.Interface) string {
 const tmpl = `
 {{define "clientImplStructName"}} wormhole{{.Name}}ClientImpl {{end}}
 {{define "clientImplConstructorName"}} Acquire{{.Name}} {{end}}
+{{define "clientKAImplStructName"}} wormhole{{.Name}}KeepAliveClientImpl {{end}}
+{{define "clientKAImplConstructorName"}} AcquireKeepAlive{{.Name}} {{end}}
 
 {{define "serverProxyFuncName"}} Register{{.Name}}Handler {{end}}
 
 package {{.Pkg}}
 
 import (
+	"context"
+	"time"
 	"github.com/themakers/wormhole/wormhole"
 )
 
@@ -60,6 +64,35 @@ import (
 	{{range $i, $fn := $ifc.Methods}}
 		func (impl *{{template "clientImplStructName" $ifc}}) {{$fn.Name}}(ctx context.Context, arg {{$fn.Arg}}) (ret {{$fn.Ret}}, err error) {
 			return ret, impl.peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
+		}
+	{{end}}
+
+
+/****************************************************************
+** {{$ifc.Name}} Client (KeepAlive)
+********/
+
+	var _ {{$ifc.Name}} = (*{{template "clientKAImplStructName" $ifc}})(nil)
+
+	type {{template "clientKAImplStructName" $ifc}} struct {
+		peer wormhole.LocalPeer
+		id   string
+		to   time.Duration
+	}
+
+	func {{template "clientKAImplConstructorName" $ifc}}(peer wormhole.LocalPeer, id string, to time.Duration) {{$ifc.Name}} {
+		return &{{template "clientKAImplStructName" $ifc}}{peer: peer, id: id, to: to}
+	}
+
+	{{range $i, $fn := $ifc.Methods}}
+		func (impl *{{template "clientKAImplStructName" $ifc}}) {{$fn.Name}}(ctx context.Context, arg {{$fn.Arg}}) (ret {{$fn.Ret}}, err error) {
+			waitCtx, cancel := context.WithTimeout(ctx, impl.to)
+			defer cancel()
+			if peer := impl.peer.(wormhole.LocalPeerGenerated).WaitFor(waitCtx, impl.id); peer != nil {
+				return ret, peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
+			} else {
+				return ret, wormhole.ErrTimeout
+			}
 		}
 	{{end}}
 

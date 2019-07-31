@@ -34,8 +34,8 @@ type GreeterHelloResp struct {
 
 /*
 const call = client.User.Events({
-	Name: 'daniil',
-	NameChanged: (data) => {
+	Message: 'daniil',
+	CallableRef: (data) => {
 
 	},
 	BalanceChanged: (data) => {
