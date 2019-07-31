@@ -313,6 +313,7 @@ func (rp *remotePeer) makeFuncThatMakesOutgoingCall(ref string, t reflect.Type) 
 		if remoteErr != "" {
 			return append(outs, reflect.ValueOf(error(&RemoteError{Text: remoteErr})))
 		} else {
+			var err error
 			return append(outs, reflect.ValueOf(&err).Elem())
 		}
 	})
