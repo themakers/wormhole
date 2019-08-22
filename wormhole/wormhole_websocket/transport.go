@@ -12,6 +12,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// TODO https://github.com/gobwas/ws ???
+
 func Acceptor(lp wormhole.LocalPeer) http.Handler {
 	var upgrader = websocket.Upgrader{
 		CheckOrigin: func(q *http.Request) bool {

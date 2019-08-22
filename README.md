@@ -26,7 +26,7 @@ log.Println(resp.Message)
 func (gr *greeterServer) Hello(ctx context.Context, q api.GreeterHelloReq) (api.GreeterHelloResp, error) {
 	log.Println("message:", q.Message)
 	
-	for _, msg := range []string{"msg1", "msg2", "msg4"} {
+	for _, msg := range []string{"msg1", "msg2", "msg3"} {
 	    q.Yield(ctx, msg)
 	}
 
@@ -74,6 +74,7 @@ Starting from `beta` we are going follow `semver` and tag releases
  - [ ] Complete demos
  - [ ] WASM/GopherJS readiness
  - [ ] Implement handshake phase?
+ - [ ] Pass Go channels?
 
 #### Why?
  * GRPC

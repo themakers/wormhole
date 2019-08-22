@@ -4,7 +4,7 @@ package main
 
 import (
 	"context"
-	"github.com/themakers/wormhole/demo/api"
+	"github.com/themakers/wormhole/tests/api"
 	"github.com/themakers/wormhole/wormhole/wormhole_websocket"
 	"log"
 	"time"

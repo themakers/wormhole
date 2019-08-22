@@ -40,7 +40,6 @@ func parse(wd string) (pkg string, interfaces []*parsex.Interface) {
 }
 
 func main() {
-
 	writeCode := func(fname string, code []byte) {
 		err := ioutil.WriteFile(fname, code, 0777)
 		if err != nil {
