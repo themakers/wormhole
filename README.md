@@ -1,8 +1,8 @@
 # wormhole
 
-Present RPC systems can pass **some** first-class objects between client/server.
-Some of them (read gRPC) introduces concepts like _streams_ and _oneof_ to cover more use cases.
-But these concepts brings more complexity to RPC because they are unnatural to programming languages.
+Nowadays RPC systems can pass **some** first-class objects between client/server.
+Some of them (e.g. gRPC) introduces concepts like _streams_ and _oneof_ to cover more use cases.
+But these concepts bring more complexity to RPC because they are unnatural to programming languages.
 
 Maybe RPC should look more like regular procedure call?
 
@@ -56,7 +56,7 @@ This repository contains both the `wormhole` tool and `Go` support library
  * `TODO` Write about companion JS library ([github.com/themakers/wormhole.js](https://github.com/themakers/wormhole.js))
 
 #### How it works
- * `TODO` Explain how we adopted Einstein-Rosen bridge to bring the idea to life (video)
+ * `TODO` Explain how we have adopted Einstein-Rosen bridge to bring the idea to life (video)
 
 #### Status
 `pre-alpha`; API is in flux, protocol also; In fact working proof-of-concept that we are actively developing 
