@@ -35,8 +35,6 @@ func (gr *greeterServer) Hello(ctx context.Context, q api.GreeterHelloReq) (api.
 ```
 
 Looks promising?
- * Contribute via pull request
- * File an issue
 
 `TODO` More demos in the `demo` folder  
 `TODO` More docs to come
@@ -61,10 +59,13 @@ This repository contains both the `wormhole` tool and `Go` support library
 #### Status
 `pre-alpha`; API is in flux, protocol also; In fact working proof-of-concept that we are actively developing 
 
-Starting from `beta` we are going follow `semver` and tag releases 
+Starting from `beta` we are going follow `semver` and tag releases.
+*You could click `Watch` button and select `Releases only` to be notified when the system reaches beta.*
+Or, of course, you can contribute!
 
-#### Contributing
- * `TODO`
+#### How to contribute
+Any help is appreciated!
+If you want to contribute, please file an issue first to discuss your proposal. 
  
 #### Who using it
  * `TODO`
