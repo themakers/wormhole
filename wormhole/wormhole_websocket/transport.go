@@ -115,7 +115,7 @@ func (c *webSocketChan) WriteMessage(m interface{}) error {
 		return err
 	}
 
-	return c.conn.WriteMessage(websocket.BinaryMessage, data)
+	return c.conn.WriteMessage(websocket.TextMessage /*BinaryMessage*/, data)
 }
 
 func (c *webSocketChan) Close() error {
