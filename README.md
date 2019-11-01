@@ -1,5 +1,7 @@
 # wormhole
 
+![wormhole animation](https://raw.githubusercontent.com/themakers/wormhole/master/_docs/_wormhole_plot/wormhole.gif)
+
 Nowadays RPC systems can pass **some** first-class objects between client/server.
 Some of them (e.g. gRPC) introduces concepts like _streams_ and _oneof_ to cover more use cases.
 But these concepts bring more complexity to RPC because they are unnatural to programming languages.
