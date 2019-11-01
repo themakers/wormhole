@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/themakers/wormhole/wormhole"
 	"github.com/themakers/wormhole/wormhole/internal/proto"
+	"log"
 	"reflect"
 )
 
@@ -82,11 +83,15 @@ func (handler) Marshal(v interface{}) ([]byte, error) {
 	if data, err := json.Marshal(wr); err != nil {
 		return nil, err
 	} else {
+		log.Println("Marshal", string(data))
 		return data, nil
 	}
 }
 
 func (handler) Unmarshal(m []byte) (interface{}, error) {
+
+	log.Println("Unmarshal", string(m))
+
 	var (
 		wr wrapper
 	)
