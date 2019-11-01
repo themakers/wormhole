@@ -35,7 +35,7 @@ type RemotePeerGenerated interface {
 
 func NewRemotePeer(dc base.DataChannel) RemotePeer {
 	rp := &remotePeer{
-		dc:  dc,
+		dc: dc,
 	}
 
 	rp.refs.rp = rp
@@ -69,10 +69,13 @@ func (rp *remotePeer) RegisterRootRef(ifc, method string, ref reflect.Value) {
 }
 
 func (rp *remotePeer) MakeRootOutgoingCall(ifc, method string, mt reflect.Type, ctx context.Context, arg, ret interface{}) error {
-	var inVals []reflect.Value
+	var inVals [][]reflect.Value
 
 	for i := 0; i < reflect.ValueOf(arg).NumField(); i++ {
-		inVals = append(inVals, reflect.ValueOf(arg).Field(i))
+		inVals = append(inVals, []reflect.Value{
+			reflect.ValueOf(reflect.TypeOf(arg).Field(i).Name),
+			reflect.ValueOf(arg).Field(i),
+		})
 	}
 
 	outVals, remoteErr, err := rp.makeOutgoingCall(fmtMethod(ifc, method), mt, true, ctx, inVals)
@@ -168,12 +171,12 @@ func (rp *remotePeer) handleProtocolMessage(msg interface{}, errorsCh chan error
 ** Outgoing outgoingCall
 ********/
 
-func (rp *remotePeer) makeOutgoingCall(methodName string, mtype reflect.Type, root bool, ctx context.Context, ins []reflect.Value) (outs []reflect.Value, remoteErr string, err error) {
+func (rp *remotePeer) makeOutgoingCall(methodName string, mtype reflect.Type, root bool, ctx context.Context, ins [][]reflect.Value) (outs []reflect.Value, remoteErr string, err error) {
 
 	protoCall := &proto.CallMsg{}
 
 	for _, inV := range ins {
-		inT := inV.Type()
+		inT := inV[1].Type()
 		switch inT.Kind() {
 		case reflect.String,
 			reflect.Array, reflect.Slice,
@@ -185,9 +188,9 @@ func (rp *remotePeer) makeOutgoingCall(methodName string, mtype reflect.Type, ro
 			protoCall.Vars = append(protoCall.Vars, inV)
 		case reflect.Func:
 			methodName := xid.New().String()
-			rp.refs.put(methodName, inV, false)
+			rp.refs.put(methodName, inV[1], false)
 			defer rp.refs.del(methodName)
-			protoCall.Vars = append(protoCall.Vars, reflect.ValueOf(methodName))
+			protoCall.Vars = append(protoCall.Vars, []reflect.Value{inV[0], reflect.ValueOf(methodName)})
 		}
 	}
 
@@ -274,16 +277,16 @@ func (rp *remotePeer) handleIncomingCall(call *proto.CallMsg) error {
 ** Magic
 ********/
 
-func (rp *remotePeer) valsRemote2Local(types []reflect.Type, values []reflect.Value) (vars []reflect.Value) {
+func (rp *remotePeer) valsRemote2Local(types []reflect.Type, values [][]reflect.Value) (vars []reflect.Value) {
 	for i, in := range values {
 		inT := types[i]
 
 		switch inT.Kind() {
 		case reflect.Func:
-			vars = append(vars, rp.makeFuncThatMakesOutgoingCall(in.String(), inT))
+			vars = append(vars, rp.makeFuncThatMakesOutgoingCall(in[1].String(), inT))
 		default:
 			inV := reflect.New(inT).Elem()
-			inV.Set(in.Convert(inT))
+			inV.Set(in[1].Convert(inT))
 			vars = append(vars, inV)
 		}
 	}
@@ -304,7 +307,13 @@ func (rp *remotePeer) makeFuncThatMakesOutgoingCall(ref string, t reflect.Type) 
 	return reflect.MakeFunc(t, func(ins []reflect.Value) []reflect.Value {
 		//> First argument is always a Context
 		ctx := ins[0].Interface().(context.Context)
-		outs, remoteErr, err := rp.makeOutgoingCall(ref, t, false, ctx, ins[1:])
+
+		var insProto [][]reflect.Value
+		for _, v := range ins[1:] {
+			insProto = append(insProto, []reflect.Value{reflect.ValueOf(""), v})
+		}
+
+		outs, remoteErr, err := rp.makeOutgoingCall(ref, t, false, ctx, insProto)
 
 		//> Last result is always an error
 		if err != nil {
@@ -355,28 +364,3 @@ type RemoteError struct {
 func (e *RemoteError) Error() string {
 	return e.Text
 }
-
-/*
-
-
-* l register ref
-
-* l remote outgoingCall (root?)
-* l args - runtime->proto (root? +register refs)
-
-* l send outgoingCall
-* r recv outgoingCall
-
-* r args - proto->runtime (+create funcs)
-* r runtime outgoingCall (root?)
-* r rets - runtime->proto (root?/ +register refs)
-
-* r send resp
-* l recv resp
-
-* l rets - proto->runtime (+create funcs)
-
-* l repeat
-
-
- */

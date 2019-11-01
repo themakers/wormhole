@@ -74,38 +74,6 @@ func StayConnected(ctx context.Context, lp wormhole.LocalPeer, addr string) {
 	}
 }
 
-//func ConnectFGSDFH(ctx context.Context, lp wormhole.LocalPeer, addr string) (wormhole.RemotePeer, error) {
-//	ctx, cancel := context.WithCancel(ctx)
-//
-//	//dialer := &websocket.Dialer{}
-//
-//	c, _, err := websocket.DefaultDialer.DialContext(ctx, addr, nil)
-//	if err != nil {
-//		res.Err <- err
-//		cancel()
-//		return
-//	}
-//	defer c.Close()
-//
-//	go (func() {
-//		defer cancel()
-//		if err := lp.(wormhole.LocalPeerTransport).HandleDataChannel(
-//			newWebSocketChan(ctx, c),
-//			wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
-//				res.Peer <- peer
-//			}, func(id string) {
-//				cancel()
-//			}),
-//		); err != nil {
-//			res.Err <- err
-//		} else {
-//			res.Err <- nil
-//		}
-//	})()
-//
-//	return
-//}
-
 ////////////////////////////////////////////////////////////////
 //// Implementation
 ////

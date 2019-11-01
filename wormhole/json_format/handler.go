@@ -45,11 +45,11 @@ func (handler) Marshal(v interface{}) ([]byte, error) {
 			ID:   pv.ID,
 			Ref:  pv.Ref,
 			Meta: pv.Meta,
-			Vars: make([]interface{}, len(pv.Vars)),
+			Vars: make([][]interface{}, len(pv.Vars)),
 		}
 		for i, v := range pv.Vars {
-			if v.CanInterface() {
-				wire.Vars[i] = v.Interface()
+			if v[1].CanInterface() {
+				wire.Vars[i] = []interface{}{v[0].Interface(), v[1].Interface()}
 			}
 		}
 		v = wire
@@ -60,12 +60,12 @@ func (handler) Marshal(v interface{}) ([]byte, error) {
 			Meta: pv.Meta,
 			Result: Result{
 				Error: pv.Result.Error,
-				Vals:  make([]interface{}, len(pv.Result.Vals)),
+				Vals:  make([][]interface{}, len(pv.Result.Vals)),
 			},
 		}
 		for i, v := range pv.Result.Vals {
-			if v.CanInterface() {
-				wire.Result.Vals[i] = v.Interface()
+			if v[1].CanInterface() {
+				wire.Result.Vals[i] = []interface{}{v[0].Interface(), v[1].Interface()}
 			}
 		}
 		v = wire
@@ -106,7 +106,7 @@ func (handler) Unmarshal(m []byte) (interface{}, error) {
 				Meta: v.Meta,
 			}
 			for _, v := range v.Vars {
-				pv.Vars = append(pv.Vars, reflect.ValueOf(v))
+				pv.Vars = append(pv.Vars, []reflect.Value{reflect.ValueOf(v[0]), reflect.ValueOf(v[1])})
 			}
 			return pv, nil
 		}
@@ -123,7 +123,7 @@ func (handler) Unmarshal(m []byte) (interface{}, error) {
 				},
 			}
 			for _, v := range v.Result.Vals {
-				pv.Result.Vals = append(pv.Result.Vals, reflect.ValueOf(v))
+				pv.Result.Vals = append(pv.Result.Vals, []reflect.Value{reflect.ValueOf(v[0]), reflect.ValueOf(v[1])})
 			}
 			return pv, nil
 		}
@@ -145,7 +145,7 @@ type CallMsg struct {
 
 	Meta map[string]string
 
-	Vars []interface{}
+	Vars [][]interface{}
 }
 
 type ResultMsg struct {
@@ -157,6 +157,6 @@ type ResultMsg struct {
 }
 
 type Result struct {
-	Vals  []interface{}
+	Vals  [][]interface{}
 	Error string
 }

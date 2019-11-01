@@ -26,7 +26,7 @@ func (r ref) returnsRef() bool {
 	return false
 }
 
-func (r ref) call(ctx context.Context, args []reflect.Value) ([]reflect.Value, error) {
+func (r ref) call(ctx context.Context, args []reflect.Value) ([][]reflect.Value, error) {
 
 	if r.root() {
 		t := r.val.Type().In(1)
@@ -39,57 +39,37 @@ func (r ref) call(ctx context.Context, args []reflect.Value) ([]reflect.Value, e
 		args = []reflect.Value{arg}
 	}
 
-	rets := r.val.Call(append(
+	retsRaw := r.val.Call(append(
 		[]reflect.Value{reflect.ValueOf(ctx)},
 		args...,
 	))
 
 	var err error
-	errVal := rets[len(rets)-1]
+	errVal := retsRaw[len(retsRaw)-1]
 	if errVal.IsValid() && errVal.CanInterface() /*&& !errVal.IsNil()*/ {
 		if e, ok := errVal.Interface().(error); ok {
 			err = e
 		}
 	}
 
+	var rets [][]reflect.Value
+
 	if r.root() {
-		ret := rets[0]
+		ret := retsRaw[0]
 
 		t := ret.Type()
-		rets = make([]reflect.Value, t.NumField())
+		rets = make([][]reflect.Value, t.NumField())
 
 		for i := 0; i < t.NumField(); i++ {
-			rets[i] = ret.Field(i)
+			rets[i] = []reflect.Value{reflect.ValueOf(t.Field(i).Name), ret.Field(i)}
 		}
 	} else {
-		rets = rets[:len(rets)-1]
+		retsRaw = retsRaw[:len(retsRaw)-1]
+
+		for _, v := range retsRaw {
+			rets = append(rets, []reflect.Value{reflect.ValueOf(""), v})
+		}
 	}
 
 	return rets, err
 }
-
-//
-//func (r ref) argTypes() (types []reflect.Type) {
-//	if r.root() {
-//		for i := 0; i < r.val.Type().In(1).NumField(); i++ {
-//			types = append(types, r.val.Type().In(1).Field(i).Type)
-//		}
-//	} else {
-//		for i := 1; i < r.val.Type().NumIn(); i++ {
-//			types = append(types, r.val.Type().In(i))
-//		}
-//	}
-//}
-//
-//func (r ref) retTypes() (types []reflect.Type) {
-//	if r.root() {
-//		for i := 0; i < r.val.Type().Out(0).NumField(); i++ {
-//			types = append(types, r.val.Type().Out(0).Field(i).Type)
-//		}
-//	} else {
-//		for i := 1; i < r.val.Type().NumOut(); i++ {
-//			types = append(types, r.val.Type().Out(i))
-//		}
-//	}
-//
-//}

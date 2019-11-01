@@ -12,7 +12,7 @@ type CallMsg struct {
 	// TODO Context info
 	// ContextTimeout int
 
-	Vars []reflect.Value
+	Vars [][]reflect.Value
 }
 
 type ResultMsg struct {
@@ -24,6 +24,6 @@ type ResultMsg struct {
 }
 
 type Result struct {
-	Vals  []reflect.Value
+	Vals  [][]reflect.Value
 	Error string
 }
