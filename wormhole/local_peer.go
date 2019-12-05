@@ -19,7 +19,7 @@ func NewLocalPeer(cbs PeerCallbacks) LocalPeer {
 	if lp.cbs == nil {
 		lp.cbs = NewPeerCallbacks(
 			func(rp RemotePeer) {},
-			func(id string) {},
+			func(rp RemotePeer) {},
 		)
 	}
 
@@ -48,20 +48,20 @@ type LocalPeerTransport interface {
 
 type PeerCallbacks interface {
 	OnPeerConnected(peer RemotePeer)
-	OnPeerDisconnected(id string)
+	OnPeerDisconnected(peer RemotePeer)
 }
 
-func NewPeerCallbacks(opc func(peer RemotePeer), opd func(id string)) PeerCallbacks {
+func NewPeerCallbacks(opc func(peer RemotePeer), opd func(peer RemotePeer)) PeerCallbacks {
 	return &peerCallbacksWrapper{opc: opc, opd: opd}
 }
 
 type peerCallbacksWrapper struct {
 	opc func(peer RemotePeer)
-	opd func(id string)
+	opd func(peer RemotePeer)
 }
 
-func (pcw *peerCallbacksWrapper) OnPeerConnected(peer RemotePeer) { pcw.opc(peer) }
-func (pcw *peerCallbacksWrapper) OnPeerDisconnected(id string)    { pcw.opd(id) }
+func (pcw *peerCallbacksWrapper) OnPeerConnected(peer RemotePeer)    { pcw.opc(peer) }
+func (pcw *peerCallbacksWrapper) OnPeerDisconnected(peer RemotePeer) { pcw.opd(peer) }
 
 /****************************************************************
 ** IMPL LocalPeer
@@ -90,23 +90,25 @@ func (lp *localPeer) HandleDataChannel(dc DataChannel, pcbs PeerCallbacks) error
 
 	defer rp.Close()
 
-	for _, ctor := range lp.ctors {
-		ctor(rp)
-	}
-
 	// FIXME
+	// peerID := xid.New().String()
 	if dc.Addr() != "" {
 		defer lp.peerOnline(rp, dc.Addr())()
 	}
 
-	go lp.cbs.OnPeerConnected(rp)
+	lp.cbs.OnPeerConnected(rp)
 	if pcbs != nil {
-		go pcbs.OnPeerConnected(rp)
+		pcbs.OnPeerConnected(rp)
 	}
+
+	for _, ctor := range lp.ctors {
+		ctor(rp)
+	}
+
 	defer (func() {
-		go lp.cbs.OnPeerDisconnected("")
+		go lp.cbs.OnPeerDisconnected(rp)
 		if pcbs != nil {
-			go pcbs.OnPeerDisconnected("")
+			go pcbs.OnPeerDisconnected(rp)
 		}
 	})()
 

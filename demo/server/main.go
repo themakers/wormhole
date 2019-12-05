@@ -17,12 +17,17 @@ func main() {
 
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 
-	lp := wormhole.NewLocalPeer(nil)
+	lp := wormhole.NewLocalPeer(wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
+		peer.SetState(&state{})
+	}, func(peer wormhole.RemotePeer) {
+	}))
+
 	defer lp.Close()
 
 	api.RegisterGreeterHandler(lp, func(rp wormhole.RemotePeer) api.Greeter {
 		return &greeter{
-			peer: api.AcquireGreeter(rp),
+			peer:  api.AcquireGreeter(rp),
+			state: rp.GetState().(*state),
 		}
 	})
 
@@ -41,8 +46,12 @@ func main() {
 	}
 }
 
+type state struct {
+}
+
 type greeter struct {
-	peer api.Greeter
+	peer  api.Greeter
+	state *state
 }
 
 func (gr *greeter) Hello(ctx context.Context, q api.GreeterHelloReq) (api.GreeterHelloResp, error) {
@@ -51,6 +60,15 @@ func (gr *greeter) Hello(ctx context.Context, q api.GreeterHelloReq) (api.Greete
 	n, err := q.CallableRef(ctx, "Hello, "+q.Message+"!")
 
 	log.Println("CallableRef()", "n", n)
+
+	//if _, err := gr.peer.Hello(ctx, api.GreeterHelloReq{
+	//	Message: "",
+	//	CallableRef: func(ctx context.Context, data string) (s string, e error) {
+	//		return "", nil
+	//	},
+	//}); err != nil {
+	//	panic(err)
+	//}
 
 	return api.GreeterHelloResp{
 		Message: "++++ " + n,

@@ -21,6 +21,10 @@ func fmtMethod(ifc, method string) string {
 type RemotePeer interface {
 	Context() context.Context
 	ReceiverWorker() error
+
+	SetState(state interface{})
+	GetState() (state interface{})
+
 	Close()
 }
 
@@ -56,6 +60,8 @@ type remotePeer struct {
 
 	refs          refs
 	outgoingCalls outgoingCalls
+
+	state interface{}
 }
 
 /****************************************************************
@@ -101,6 +107,14 @@ func (rp *remotePeer) MakeRootOutgoingCall(ifc, method string, mt reflect.Type, 
 
 func (rp *remotePeer) Context() context.Context {
 	return rp.dc.Context()
+}
+
+func (rp *remotePeer) SetState(state interface{}) {
+	rp.state = state
+}
+
+func (rp *remotePeer) GetState() interface{} {
+	return rp.state
 }
 
 /****************************************************************

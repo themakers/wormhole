@@ -18,10 +18,18 @@ func main() {
 
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 
-	lp := wormhole.NewLocalPeer(nil)
+	lp := wormhole.NewLocalPeer(wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
+
+	}, func(peer wormhole.RemotePeer) {
+
+	}))
 	defer lp.Close()
 
-	go wormhole_websocket.StayConnected(ctx, lp, "ws://localhost:7532")
+	go wormhole_websocket.StayConnected(ctx, lp, wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
+
+	}, func(peer wormhole.RemotePeer) {
+
+	}), "ws://localhost:7532")
 
 	greeter := api.AcquireKeepAliveGreeter(lp, "ws://localhost:7532", 2*time.Second)
 

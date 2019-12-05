@@ -46,7 +46,7 @@ func Connect(ctx context.Context, lp wormhole.LocalPeer, addr string, pcbs wormh
 	return lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(ctx, addr, c), pcbs)
 }
 
-func StayConnected(ctx context.Context, lp wormhole.LocalPeer, addr string) {
+func StayConnected(ctx context.Context, lp wormhole.LocalPeer, pcbs wormhole.PeerCallbacks, addr string) {
 	for {
 		(func() {
 			defer func() {
@@ -55,11 +55,7 @@ func StayConnected(ctx context.Context, lp wormhole.LocalPeer, addr string) {
 				}
 			}()
 
-			if err := Connect(ctx, lp, addr, wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
-
-			}, func(id string) {
-
-			})); err != nil {
+			if err := Connect(ctx, lp, addr, pcbs); err != nil {
 				panic(err)
 			}
 
@@ -125,6 +121,7 @@ func (c *webSocketChan) Close() error {
 	if err := c.conn.Close(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
