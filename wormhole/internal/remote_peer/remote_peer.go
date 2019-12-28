@@ -3,16 +3,11 @@ package remote_peer
 import (
 	"context"
 	"fmt"
-	"github.com/themakers/wormhole/wormhole/internal/base"
-	"github.com/themakers/wormhole/wormhole/internal/proto"
-	"reflect"
+	"github.com/themakers/wormhole/wormhole/internal/data_channel"
+	"github.com/themakers/wormhole/wormhole/wire_io"
 
 	"github.com/rs/xid"
 )
-
-func fmtMethod(ifc, method string) string {
-	return fmt.Sprintf("%s.%s", ifc, method)
-}
 
 /****************************************************************
 ** InterfacesMap
@@ -29,23 +24,24 @@ type RemotePeer interface {
 }
 
 type RemotePeerGenerated interface {
-	RegisterRootRef(ifc, method string, mval reflect.Value)
-	MakeRootOutgoingCall(ifc, method string, mtype reflect.Type, ctx context.Context, arg, ret interface{}) error
+	Call(ref string, ctx context.Context, narg int, write func(RegisterUnnamedRefFunc, wire_io.ValueWriter), res ResultFunc)
+	RegisterServiceRef(ref string, call RefFunc)
 }
+
+type RegisterUnnamedRefFunc func(call RefFunc) string
 
 /****************************************************************
 ** IMPL
 ********/
 
-func NewRemotePeer(dc base.DataChannel) RemotePeer {
+func NewRemotePeer(dc data_channel.DataChannel) RemotePeer {
 	rp := &remotePeer{
 		dc: dc,
 	}
 
-	rp.refs.rp = rp
-	rp.refs.refs = map[string]ref{}
+	rp.refs.refs = map[string]RefFunc{}
 
-	rp.outgoingCalls.calls = map[string]*outgoingCall{}
+	rp.outgoingCalls.calls = map[string]ResultFunc{}
 
 	return rp
 }
@@ -56,49 +52,14 @@ var (
 )
 
 type remotePeer struct {
-	dc base.DataChannel
+	dc data_channel.DataChannel
 
 	refs          refs
 	outgoingCalls outgoingCalls
 
+	rmRootRefs []func()
+
 	state interface{}
-}
-
-/****************************************************************
-** Code for interfacing with generated code
-********/
-
-func (rp *remotePeer) RegisterRootRef(ifc, method string, ref reflect.Value) {
-	methodName := fmtMethod(ifc, method)
-
-	rp.refs.put(methodName, ref, true)
-}
-
-func (rp *remotePeer) MakeRootOutgoingCall(ifc, method string, mt reflect.Type, ctx context.Context, arg, ret interface{}) error {
-	var inVals [][]reflect.Value
-
-	for i := 0; i < reflect.ValueOf(arg).NumField(); i++ {
-		inVals = append(inVals, []reflect.Value{
-			reflect.ValueOf(reflect.TypeOf(arg).Field(i).Name),
-			reflect.ValueOf(arg).Field(i),
-		})
-	}
-
-	outVals, remoteErr, err := rp.makeOutgoingCall(fmtMethod(ifc, method), mt, true, ctx, inVals)
-	if err != nil {
-		return err
-	}
-
-	retVal := reflect.ValueOf(ret).Elem()
-	for i := 0; i < retVal.NumField(); i++ {
-		retVal.Field(i).Set(outVals[i])
-	}
-
-	if remoteErr != "" {
-		return error(&RemoteError{Text: remoteErr})
-	}
-
-	return nil
 }
 
 /****************************************************************
@@ -122,259 +83,186 @@ func (rp *remotePeer) GetState() interface{} {
 ********/
 
 func (rp *remotePeer) Close() {
+	rp.refs.remove(rp.rmRootRefs...)
 	rp.dc.Close()
 }
 
 func (rp *remotePeer) ReceiverWorker() error {
 	var (
 		ctx, cancel = context.WithCancel(rp.dc.Context())
-		msgsCh      = make(chan interface{}, 128)
 		errorsCh    = make(chan error)
 	)
 	defer cancel()
 
-	go (func() {
-		defer cancel()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			msg, err := rp.dc.ReadMessage()
-			if err != nil {
-				errorsCh <- err
-				return
-			}
-			msgsCh <- msg
-		}
-	})()
-
 	for {
 		select {
-		case err := <-errorsCh:
-			if err != nil {
-				return err
-			} else {
-				// TODO Warn
-			}
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg := <-msgsCh:
-			go rp.handleProtocolMessage(msg, errorsCh)
+		default:
 		}
+
+		sz, mr, err := rp.dc.MessageReader()
+		if err != nil {
+			return err
+		}
+
+		go func(sz int, mr wire_io.ValueReader) {
+			_, err := mr() //> Version
+			if err != nil {
+				panic(err)
+			}
+
+			mType, err := mr()
+			if err != nil {
+				panic(err)
+			}
+
+			switch mType.(int) { //> Message
+			case 1:
+				if sz != 5 {
+					panic(fmt.Sprintf("unrecognized message size: %d", sz))
+				}
+
+				call, err := mr()
+				if err != nil {
+					panic(err)
+				}
+				ref, err := mr()
+				if err != nil {
+					panic(err)
+				}
+				ar, err := mr()
+				if err != nil {
+					panic(err)
+				}
+
+				if err := rp.handleIncomingCall(ctx, call.(string), ref.(string), ar.(wire_io.ArrayReader)); err != nil {
+					errorsCh <- err
+				}
+			case 2:
+				if sz != 4 {
+					panic(fmt.Sprintf("unrecognized message size: %d", sz))
+				}
+
+				call, err := mr()
+				if err != nil {
+					panic(err)
+				}
+
+				ar, err := mr()
+				if err != nil {
+					panic(err)
+				}
+
+				if err := rp.handleIncomingResult(ctx, call.(string), ar.(wire_io.ArrayReader)); err != nil {
+					errorsCh <- err
+				}
+			default:
+				panic("unhandled protocol message")
+			}
+		}(sz, mr)
 	}
 }
-func (rp *remotePeer) handleProtocolMessage(msg interface{}, errorsCh chan error) {
-	switch msg := msg.(type) {
-	case *proto.CallMsg:
-		if err := rp.handleIncomingCall(msg); err != nil {
-			errorsCh <- err
-		}
-	case *proto.ResultMsg:
-		if err := rp.handleIncomingResult(msg); err != nil {
-			errorsCh <- err
-		}
-	default:
-		panic("shit happened")
-	}
-}
 
-/****************************************************************
-** Outgoing outgoingCall
-********/
+func (rp *remotePeer) handleIncomingResult(ctx context.Context, call string, ar wire_io.ArrayReader) error {
 
-func (rp *remotePeer) makeOutgoingCall(methodName string, mtype reflect.Type, root bool, ctx context.Context, ins [][]reflect.Value) (outs []reflect.Value, remoteErr string, err error) {
-
-	protoCall := &proto.CallMsg{}
-
-	for _, inV := range ins {
-		inT := inV[1].Type()
-		switch inT.Kind() {
-		case reflect.String,
-			reflect.Array, reflect.Slice,
-			reflect.Bool,
-			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-			reflect.Float32, reflect.Float64,
-			reflect.Struct:
-			protoCall.Vars = append(protoCall.Vars, inV)
-		case reflect.Func:
-			methodName := xid.New().String()
-			rp.refs.put(methodName, inV[1], false)
-			defer rp.refs.del(methodName)
-			protoCall.Vars = append(protoCall.Vars, []reflect.Value{inV[0], reflect.ValueOf(methodName)})
-		}
-	}
-
-	callID := xid.New().String()
-	outgoingCall := rp.outgoingCalls.put(callID, methodName)
-	defer rp.outgoingCalls.del(callID) // FIXME Replace with context
-
-	// TODO Send 'cancelled' message with call id when context cancelled
-
-	protoCall.Ref = methodName
-	protoCall.ID = callID
-
-	err = rp.dc.WriteMessage(protoCall)
-	if err != nil {
-		return
-	}
-
-	select {
-	case result := <-outgoingCall.res:
-		//for i, _ /*res*/ := range result.Vals {
-		//	v := reflect.New(mtype.Out(i))
-		//	//unmarshal(res, v.Elem())
-		//	//res.
-		//	outs = append(outs, v.Elem())
-		//}
-
-		//> Convert results
-		outs = rp.valsRemote2Local(methodRetTypes(mtype, root), result.Vals)
-		remoteErr = result.Error
-	}
-
-	return
-}
-
-func (rp *remotePeer) handleIncomingResult(result *proto.ResultMsg) error {
-
-	if call, ok := rp.outgoingCalls.get(result.Call); ok {
-		call.res <- result.Result
+	if res := rp.outgoingCalls.get(call); res != nil {
+		res(ctx, ar)
 	} else {
-		err := fmt.Errorf("pending outgoingCall not found: %s", result.Call)
+		err := fmt.Errorf("pending outgoing call not found, but result was received: %s", call)
 		return err
 	}
+
+	return nil
+}
+
+func (rp *remotePeer) handleIncomingCall(ctx context.Context, call, ref string, ar wire_io.ArrayReader) error {
+
+	if callRef := rp.refs.get(ref); callRef != nil {
+
+		callRef(ctx, ar, func(n int, wf func(RegisterUnnamedRefFunc, wire_io.ValueWriter)) {
+			if err := rp.dc.MessageWriter(4, func(w wire_io.ValueWriter) error {
+				if err := w.WriteInt(1); err != nil { //> Version
+					panic(err)
+				}
+				if err := w.WriteInt(2); err != nil { //> Type: Result
+					panic(err)
+				}
+				if err := w.WriteString(call); err != nil { //> Call
+					panic(err)
+				}
+				if err := w.WriteArray(n, func(w wire_io.ValueWriter) error {
+					wf(func(call RefFunc) string {
+						// TODO
+						panic("unimplemented")
+					}, w)
+
+					return nil
+				}); err != nil {
+					panic(err)
+				}
+
+				return nil
+			}); err != nil {
+				panic(err)
+			}
+		})
+
+	} else {
+		return fmt.Errorf("ref not found: %s", ref)
+	}
+
 	return nil
 }
 
 /****************************************************************
-** Incoming call
+** Outgoing Call
 ********/
 
-func (rp *remotePeer) handleIncomingCall(call *proto.CallMsg) error {
+func (rp *remotePeer) Call(ref string, ctx context.Context, nIns int, write func(RegisterUnnamedRefFunc, wire_io.ValueWriter), res ResultFunc) {
+	callID := xid.New().String()
 
-	if ref, ok := rp.refs.get(call.Ref); ok {
+	resCh, rmCall := rp.outgoingCalls.put(ctx, callID, res)
+	defer rmCall()
 
-		args := rp.valsRemote2Local(methodArgTypes(ref.val.Type(), ref.root()), call.Vars)
+	var rmRefs []func()
 
-		// TODO handle incoming context options
-		ctx := context.TODO()
-
-		resultVals, err := ref.call(ctx, args)
-
-		// FIXME !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		// FIXME Register returned refs until context cancelled
-
-		result := proto.Result{
-			Vals: resultVals,
-		}
-
-		if err != nil {
-			result.Error = err.Error()
-		}
-
-		return rp.dc.WriteMessage(&proto.ResultMsg{
-			Call:   call.ID,
-			Result: result,
-		})
-
-	} else {
-		err := fmt.Errorf("ref not found: %s", call.Ref)
-		return err
-	}
-}
-
-/****************************************************************
-** Magic
-********/
-
-func (rp *remotePeer) valsRemote2Local(types []reflect.Type, values [][]reflect.Value) (vars []reflect.Value) {
-	for i, in := range values {
-		inT := types[i]
-
-		switch inT.Kind() {
-		case reflect.Func:
-			vars = append(vars, rp.makeFuncThatMakesOutgoingCall(in[1].String(), inT))
-		default:
-			inV := reflect.New(inT).Elem()
-			inV.Set(in[1].Convert(inT))
-			vars = append(vars, inV)
-		}
-	}
-	return
-}
-
-func (rp *remotePeer) makeFuncThatMakesOutgoingCall(ref string, t reflect.Type) reflect.Value {
-
-	populateDefaultOuts := func(t reflect.Type, err error) (vals []reflect.Value) {
-		vals = make([]reflect.Value, t.NumOut())
-		for i := 0; i < t.NumOut()-1; i++ {
-			vals[i] = reflect.New(t.Out(i)).Elem()
-		}
-		vals[len(vals)-1] = reflect.ValueOf(err)
-		return
+	registerRef := func(call RefFunc) string {
+		ref := xid.New().String()
+		rmRefs = append(rmRefs, rp.refs.put(ref, call))
+		return ref
 	}
 
-	return reflect.MakeFunc(t, func(ins []reflect.Value) []reflect.Value {
-		//> First argument is always a Context
-		ctx := ins[0].Interface().(context.Context)
+	defer rp.refs.remove(rmRefs...)
 
-		var insProto [][]reflect.Value
-		for _, v := range ins[1:] {
-			insProto = append(insProto, []reflect.Value{reflect.ValueOf(""), v})
+	if err := rp.dc.MessageWriter(5, func(mw wire_io.ValueWriter) error {
+		if err := mw.WriteInt(1); err != nil { //> Version
+			panic(err)
+		}
+		if err := mw.WriteInt(1); err != nil { //> Call
+			panic(err)
+		}
+		if err := mw.WriteString(callID); err != nil { //> Call ID
+			panic(err)
+		}
+		if err := mw.WriteString(ref); err != nil { //> Ref
+			panic(err)
+		}
+		if err := mw.WriteArray(nIns, func(w wire_io.ValueWriter) error {
+			write(registerRef, w)
+			return nil
+		}); err != nil { //> Values
+			panic(err)
 		}
 
-		outs, remoteErr, err := rp.makeOutgoingCall(ref, t, false, ctx, insProto)
-
-		//> Last result is always an error
-		if err != nil {
-			return populateDefaultOuts(t, err)
-		}
-		if remoteErr != "" {
-			return append(outs, reflect.ValueOf(error(&RemoteError{Text: remoteErr})))
-		} else {
-			var err error
-			return append(outs, reflect.ValueOf(&err).Elem())
-		}
-	})
-}
-
-func methodArgTypes(t reflect.Type, root bool) (types []reflect.Type) {
-	if root {
-		t := t.In(1)
-		for i := 0; i < t.NumField(); i++ {
-			types = append(types, t.Field(i).Type)
-		}
-	} else {
-		for i := 1; i < t.NumIn(); i++ {
-			types = append(types, t.In(i))
-		}
-	}
-	return
-}
-
-func methodRetTypes(t reflect.Type, root bool) (types []reflect.Type) {
-	if root {
-		t := t.Out(0)
-		for i := 0; i < t.NumField(); i++ {
-			types = append(types, t.Field(i).Type)
-		}
-	} else {
-		for i := 0; i < t.NumOut()-1; i++ {
-			types = append(types, t.Out(i))
-		}
+		return nil
+	}); err != nil {
+		panic(err)
 	}
 
-	return
+	<-resCh
 }
 
-type RemoteError struct {
-	Text string
-}
-
-func (e *RemoteError) Error() string {
-	return e.Text
+func (rp *remotePeer) RegisterServiceRef(ref string, call RefFunc) {
+	rp.rmRootRefs = append(rp.rmRootRefs, rp.refs.put(ref, call))
 }

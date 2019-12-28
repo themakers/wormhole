@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/themakers/wormhole/tests/api"
 	"github.com/themakers/wormhole/wormhole"
-	"github.com/themakers/wormhole/wormhole/wormhole_websocket"
+	"github.com/themakers/wormhole/wormhole_websocket"
 	"net"
 	"net/http"
 	"testing"
@@ -26,7 +26,7 @@ func BenchmarkBasic(b *testing.B) {
 		if resp, err := client.Hello(ctx, api.GreeterHelloReq{
 			Message: "+",
 			CallableRef: func(ctx context.Context, data string) (res string, err error) {
-				return data+"+", nil
+				return data + "+", nil
 			},
 		}); err != nil {
 			panic(err)
@@ -105,7 +105,7 @@ func (gr *greeter) Hello(ctx context.Context, q api.GreeterHelloReq) (api.Greete
 		if resp, err := gr.peer.Hello(ctx, api.GreeterHelloReq{
 			Message: "+",
 			CallableRef: func(ctx context.Context, data string) (res string, err error) {
-				return data+"+", nil
+				return data + "+", nil
 			},
 		}); err != nil {
 			panic(err)
@@ -117,6 +117,6 @@ func (gr *greeter) Hello(ctx context.Context, q api.GreeterHelloReq) (api.Greete
 	}
 
 	return api.GreeterHelloResp{
-		Message: n+"+",
+		Message: n + "+",
 	}, err
 }

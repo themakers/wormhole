@@ -3,9 +3,11 @@
 package wormhole_websocket
 
 import (
+	"bytes"
 	"context"
 	"github.com/themakers/wormhole/wormhole"
-	"github.com/themakers/wormhole/wormhole/json_format"
+	"github.com/themakers/wormhole/wormhole/wire_io"
+	"github.com/themakers/wormhole/wormhole_msgp"
 	"net/http"
 	"time"
 
@@ -29,7 +31,7 @@ func Acceptor(lp wormhole.LocalPeer) http.Handler {
 		}
 		defer c.Close()
 
-		if err := lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(q.Context(), "", c), nil); err != nil && err != wormhole.ErrPeerGone {
+		if err := lp.(wormhole.LocalPeerTransport).HandleDataChannel(newWebSocketChan(q.Context(), "", c), nil); err != nil && err != wormhole.ErrPeerGone && err != context.Canceled {
 			panic(err)
 		} else {
 		}
@@ -79,7 +81,7 @@ func newWebSocketChan(ctx context.Context, addr string, conn *websocket.Conn) wo
 		ctx:  ctx,
 		addr: addr,
 		conn: conn,
-		wfh:  json_format.New(),
+		wfh:  wormhole_msgp.Handler,
 	}
 }
 
@@ -89,29 +91,41 @@ type webSocketChan struct {
 	ctx  context.Context
 	addr string
 	conn *websocket.Conn
-	wfh  wormhole.WireFormatHandler
+	wfh  wire_io.Handler
 }
 
-func (c *webSocketChan) ReadMessage() (interface{}, error) {
+func (c *webSocketChan) MessageReader() (sz int, vr wire_io.ValueReader, err error) {
 	_, data, err := c.conn.ReadMessage()
+
 	if err != nil {
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-			return nil, err
+			return 0, nil, err
 		} else {
-			return nil, wormhole.ErrPeerGone
+			return 0, nil, wormhole.ErrPeerGone
 		}
 	}
 
-	return c.wfh.Unmarshal(data)
+	return c.wfh.NewReader(bytes.NewReader(data))
 }
 
-func (c *webSocketChan) WriteMessage(m interface{}) error {
-	data, err := c.wfh.Marshal(m)
-	if err != nil {
+func (c *webSocketChan) MessageWriter(sz int, mw func(wire_io.ValueWriter) error) error {
+	//wc, err := c.conn.NextWriter(websocket.BinaryMessage)
+	//if err != nil {
+	//	return err
+	//}
+
+	buf := bytes.NewBuffer([]byte{})
+
+	if err := c.wfh.NewWriter(sz, buf, func(vw wire_io.ValueWriter) error {
+		if err := mw(vw); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 
-	return c.conn.WriteMessage(websocket.TextMessage /*BinaryMessage*/, data)
+	return c.conn.WriteMessage(websocket.BinaryMessage, buf.Bytes())
 }
 
 func (c *webSocketChan) Close() error {

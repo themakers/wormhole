@@ -1,12 +1,12 @@
 package main
 
-//go:generate sh -c "cd ../api && go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
+//go:generate sh -c "cd ../../tests/api && go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
 
 import (
 	"context"
 	"github.com/themakers/wormhole/tests/api"
 	"github.com/themakers/wormhole/wormhole"
-	"github.com/themakers/wormhole/wormhole/wormhole_websocket"
+	"github.com/themakers/wormhole/wormhole_websocket"
 	"log"
 	"net/http"
 )
@@ -55,7 +55,7 @@ type greeter struct {
 }
 
 func (gr *greeter) Hello(ctx context.Context, q api.GreeterHelloReq) (api.GreeterHelloResp, error) {
-	log.Println("Hello()", "name", q.Message)
+	log.Println("Hello()", "name", q.Message, q.CallableRef)
 
 	n, err := q.CallableRef(ctx, "Hello, "+q.Message+"!")
 

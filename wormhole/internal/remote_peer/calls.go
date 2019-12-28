@@ -1,45 +1,42 @@
 package remote_peer
 
 import (
-	"github.com/themakers/wormhole/wormhole/internal/proto"
+	"context"
+	"github.com/themakers/wormhole/wormhole/wire_io"
 	"sync"
 )
 
-type outgoingCall struct {
-	id  string
-	ref string
-
-	res chan proto.Result
-}
+type ResultFunc func(context.Context, wire_io.ArrayReader)
 
 type outgoingCalls struct {
-	calls map[string]*outgoingCall
+	calls map[string]ResultFunc
 	lock  sync.RWMutex
 }
 
-func (c *outgoingCalls) put(id string, ref string) *outgoingCall {
+func (c *outgoingCalls) put(ctx context.Context, id string, res ResultFunc) (<-chan struct{}, func()) {
+	ctx, cancel := context.WithCancel(ctx)
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.calls[id] = &outgoingCall{
-		id:  id,
-		ref: ref,
-		res: make(chan proto.Result, 1),
+	c.calls[id] = func(ctx context.Context, ar wire_io.ArrayReader) {
+		res(ctx, ar)
+		cancel()
 	}
-	return c.calls[id]
+
+	return ctx.Done(), func() {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+
+		delete(c.calls, id)
+
+		cancel()
+	}
 }
 
-func (c *outgoingCalls) del(id string) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	delete(c.calls, id)
-}
-
-func (c *outgoingCalls) get(id string) (*outgoingCall, bool) {
+func (c *outgoingCalls) get(id string) ResultFunc {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	call, ok := c.calls[id]
-	return call, ok
+	return c.calls[id]
 }

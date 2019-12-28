@@ -1,39 +1,41 @@
 package remote_peer
 
 import (
-	"reflect"
+	"context"
+	"github.com/themakers/wormhole/wormhole/wire_io"
 	"sync"
 )
 
+type RefFunc func(ctx context.Context, ar wire_io.ArrayReader, w func(int, func(RegisterUnnamedRefFunc, wire_io.ValueWriter)))
+
 type refs struct {
-	rp   *remotePeer
-	refs map[string]ref
+	refs map[string]RefFunc
 	lock sync.RWMutex
 }
 
-func (rpm *refs) put(name string, rv reflect.Value, root bool) {
+func (rpm *refs) put(name string, ref RefFunc) func() {
 	rpm.lock.Lock()
 	defer rpm.lock.Unlock()
 
-	rpm.refs[name] = ref{
-		name: name,
-		val:  rv,
-		//root: root, // FIXME
-		rp:   rpm.rp,
+	rpm.refs[name] = ref
+
+	return func() {
+		delete(rpm.refs, name)
 	}
 }
 
-func (rpm *refs) del(name string) {
+func (rpm *refs) remove(fns ...func()) {
 	rpm.lock.Lock()
 	defer rpm.lock.Unlock()
 
-	delete(rpm.refs, name)
+	for _, fn := range fns {
+		fn()
+	}
 }
 
-func (rpm *refs) get(name string) (ref, bool) {
+func (rpm *refs) get(name string) RefFunc {
 	rpm.lock.RLock()
 	defer rpm.lock.RUnlock()
 
-	ref, ok := rpm.refs[name]
-	return ref, ok
+	return rpm.refs[name]
 }

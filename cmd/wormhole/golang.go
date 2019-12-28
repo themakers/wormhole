@@ -42,8 +42,12 @@ package {{.Pkg}}
 
 import (
 	"context"
-	"time"
-	"github.com/themakers/wormhole/wormhole"
+	"fmt"
+
+	__wormhole "github.com/themakers/wormhole/wormhole"
+	wormhole "github.com/themakers/wormhole/wormhole"
+	__wire_io "github.com/themakers/wormhole/wormhole/wire_io"
+	__reflect_hack "github.com/themakers/wormhole/wormhole/reflect_hack"
 )
 
 {{range $i, $ifc := .Ifcs}}
@@ -54,45 +58,42 @@ import (
 	var _ {{$ifc.Name}} = (*{{template "clientImplStructName" $ifc}})(nil)
 
 	type {{template "clientImplStructName" $ifc}} struct {
-		peer wormhole.RemotePeer
+		peer __wormhole.RemotePeer
 	}
 
-	func {{template "clientImplConstructorName" $ifc}}(peer wormhole.RemotePeer) {{$ifc.Name}} {
+	func {{template "clientImplConstructorName" $ifc}}(peer __wormhole.RemotePeer) {{$ifc.Name}} {
 		return &{{template "clientImplStructName" $ifc}}{peer: peer}
 	}
 
 	{{range $i, $fn := $ifc.Methods}}
-		func (impl *{{template "clientImplStructName" $ifc}}) {{$fn.Name}}(ctx context.Context, arg {{$fn.Arg}}) (ret {{$fn.Ret}}, err error) {
-			return ret, impl.peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
-		}
-	{{end}}
+		func (__impl *{{template "clientImplStructName" $ifc}}) {{$fn.String}} {
+			__peer := __impl.peer.(__wormhole.RemotePeerGenerated)
 
+			__doneCtx, __done := context.WithCancel(ctx)
+			defer __done()
 
-/****************************************************************
-** {{$ifc.Name}} Client (KeepAlive)
-********/
+			__peer.Call("{{$ifc.Name}}.{{$fn.Name}}", ctx, {{len $fn.Ins}}, func(__rr __wormhole.RegisterUnnamedRefFunc, __w __wire_io.ValueWriter) {
+				{{range $fn.Ins}}
+					__reflect_hack.WriteAny(__peer, __rr, __w, {{.}}){{end}}
 
-	var _ {{$ifc.Name}} = (*{{template "clientKAImplStructName" $ifc}})(nil)
+			}, func(ctx context.Context, __ar __wire_io.ArrayReader) {
+				defer __done()
+				__sz, __r, __err := __ar()
+				if __err != nil {
+					panic(__err)
+				}
+				if __sz != {{len $fn.Outs}} {
+					panic(fmt.Sprintf("return values count mismatch: %d != %d", {{len $fn.Outs}}, __sz))
+				}
 
-	type {{template "clientKAImplStructName" $ifc}} struct {
-		peer wormhole.LocalPeer
-		id   string
-		to   time.Duration
-	}
+				{{range $fn.Outs}}
+					__reflect_hack.ReadAny(__peer, __r, &{{.}}){{end}}
 
-	func {{template "clientKAImplConstructorName" $ifc}}(peer wormhole.LocalPeer, id string, to time.Duration) {{$ifc.Name}} {
-		return &{{template "clientKAImplStructName" $ifc}}{peer: peer, id: id, to: to}
-	}
+			})
 
-	{{range $i, $fn := $ifc.Methods}}
-		func (impl *{{template "clientKAImplStructName" $ifc}}) {{$fn.Name}}(ctx context.Context, arg {{$fn.Arg}}) (ret {{$fn.Ret}}, err error) {
-			waitCtx, cancel := context.WithTimeout(ctx, impl.to)
-			defer cancel()
-			if peer := impl.peer.(wormhole.LocalPeerGenerated).WaitFor(waitCtx, impl.id); peer != nil {
-				return ret, peer.(wormhole.RemotePeerGenerated).MakeRootOutgoingCall("{{$ifc.Name}}", "{{$fn.Name}}", reflect.TypeOf(impl.{{$fn.Name}}), ctx, arg, &ret)
-			} else {
-				return ret, wormhole.ErrTimeout
-			}
+			<-__doneCtx.Done()
+
+			return
 		}
 	{{end}}
 
@@ -100,13 +101,33 @@ import (
 ** {{$ifc.Name}} Handler
 ********/
 
-	func {{template "serverProxyFuncName" $ifc}}(peer wormhole.LocalPeer, constructor func(caller wormhole.RemotePeer) {{$ifc.Name}}) {
-		peer.(wormhole.LocalPeerGenerated).RegisterInterface("{{$ifc.Name}}", func(caller wormhole.RemotePeer) {
-			ifc := constructor(caller)
-			val := reflect.ValueOf(ifc)
-			
+	func {{template "serverProxyFuncName" $ifc}}(localPeer wormhole.LocalPeer, constructor func(wormhole.RemotePeer) {{$ifc.Name}}) {
+		localPeer.(__wormhole.LocalPeerGenerated).RegisterInterface("{{$ifc.Name}}", func(peer __wormhole.RemotePeer) {
+			__ifc := constructor(peer)
+			__peer := peer.(__wormhole.RemotePeerGenerated)
 			{{range $i, $fn := $ifc.Methods}}
-			caller.(wormhole.RemotePeerGenerated).RegisterRootRef("{{$ifc.Name}}", "{{$fn.Name}}", val.MethodByName("{{$fn.Name}}")) {{end}}
+			__peer.RegisterServiceRef("{{$ifc.Name}}.{{$fn.Name}}", func(ctx context.Context, __ar __wire_io.ArrayReader, __wf func(int, func(__wormhole.RegisterUnnamedRefFunc, __wire_io.ValueWriter))) {
+				var ( {{range $arg := $fn.Args}}
+					{{$arg.String}}{{end}}
+				)
+
+				__sz, __r, __err := __ar()
+				if __err != nil {
+					panic(__err)
+				}
+				if __sz != {{len $fn.Ins}} {
+					panic(fmt.Sprintf("arguments count mismatch: %d != %d", {{len $fn.Ins}}, __sz))
+				}
+
+				{{range $fn.Ins}}
+				__reflect_hack.ReadAny(__peer, __r, &{{.}}){{end}}
+
+				{{$fn.RetsList}} := __ifc.{{$fn.Name}}(ctx, {{$fn.ArgsList}})
+
+				__wf({{len $fn.Outs}}, func(__rr __wormhole.RegisterUnnamedRefFunc, __w __wire_io.ValueWriter) { {{range $fn.Outs}}
+					__reflect_hack.WriteAny(__peer, __rr, __w, {{.}}){{end}}
+				})
+			}) {{end}}
 		})
 	}
 

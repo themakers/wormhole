@@ -2,15 +2,12 @@ package main
 
 import (
 	"github.com/themakers/wormhole/parsex"
+	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
-	"text/template"
-
-	"golang.org/x/tools/imports"
 )
 
 func PWD() string {
@@ -54,20 +51,20 @@ func main() {
 		{
 			os.Remove(bcpFile)
 			os.Rename(outFile, bcpFile)
-			defer (func() {
-				if rec := recover(); rec != nil {
-					stack := string(debug.Stack())
-					if err, ok := rec.(template.ExecError); ok {
-						log.Printf("PANIC: %#v\n", err.Err)
-					} else {
-						log.Printf("PANIC: %#v\n%s", rec, stack)
-					}
-					//os.Remove(outFile)
-					//os.Rename(bcpFile, outFile)
-				} else {
-					os.Remove(bcpFile)
-				}
-			})()
+			//defer (func() {
+			//	if rec := recover(); rec != nil {
+			//		stack := string(debug.Stack())
+			//		if err, ok := rec.(template.ExecError); ok {
+			//			log.Printf("PANIC: %#v\n", err.Err)
+			//		} else {
+			//			log.Printf("PANIC: %#v\n%s", rec, stack)
+			//		}
+			//		//os.Remove(outFile)
+			//		//os.Rename(bcpFile, outFile)
+			//	} else {
+			//		os.Remove(bcpFile)
+			//	}
+			//})()
 		}
 		pkg, ifaces := parse(PWD())
 		if len(ifaces) == 0 {
@@ -97,7 +94,7 @@ func main() {
 func listSourceFiles(dir string) []string {
 	arbitraryFiles, err := ioutil.ReadDir(dir)
 	perr(err)
-	files := []string{}
+	var files []string
 	for _, arbitraryFile := range arbitraryFiles {
 		if !arbitraryFile.IsDir() &&
 			strings.HasSuffix(arbitraryFile.Name(), ".go") &&

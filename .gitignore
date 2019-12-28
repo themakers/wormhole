@@ -22,3 +22,6 @@
 /demo/client/client
 /demo/server/server
 
+ops/benchdraw.out.txt
+
+*.gen.go.bak

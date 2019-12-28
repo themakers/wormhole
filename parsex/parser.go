@@ -63,9 +63,9 @@ func Parse(files ...string) (*Parsed, error) {
 		fmt.Println(strings.Repeat("•", 64))
 		astwalker.WalkAST(f, nil, testWalker()).Root().Children()[0].Children()
 		fmt.Println(strings.Repeat("•", 64))
-		astwalker.WalkAST(f, nil, InterfaceMethodWalker(func(pkg, ifcName, method, arg, res string) {
+		astwalker.WalkAST(f, nil, InterfaceMethodWalker(func(pkg, ifcName, method string, arg, res []Param) {
 			t.Pkg = pkg
-			
+
 			ifc := t.InterfacesMap[ifcName]
 			if ifc == nil {
 				ifc = &Interface{
@@ -79,8 +79,8 @@ func Parse(files ...string) (*Parsed, error) {
 			meth := &Method{
 				Interface: ifcName,
 				Name:      method,
-				Arg:       arg,
-				Ret:       res,
+				Args:      arg,
+				Rets:      res,
 			}
 
 			ifc.Methods = append(ifc.Methods, meth)
@@ -91,7 +91,25 @@ func Parse(files ...string) (*Parsed, error) {
 	return t, nil
 }
 
-func InterfaceMethodWalker(h func(pkg, ifc, method, arg, res string)) astwalker.VisitorFunc {
+func typeName(e ast.Expr) string {
+	if sel, ok := e.(*ast.SelectorExpr); ok {
+		tx := fmt.Sprint(sel.X)
+		tsel := fmt.Sprint(sel.Sel)
+		if tx != "" {
+			return fmt.Sprintf("%s.%s", tx, tsel)
+		} else {
+			return tsel
+		}
+	} else if idn, ok := e.(*ast.Ident); ok {
+		return idn.Name
+	} else if sexp, ok := e.(*ast.StarExpr); ok {
+		return fmt.Sprintf("*%s", typeName(sexp.X))
+	} else {
+		panic(fmt.Sprintf("unknown element: %#v", e))
+	}
+}
+
+func InterfaceMethodWalker(h func(pkg, ifc, method string, args, ress []Param)) astwalker.VisitorFunc {
 	pkg := ""
 	return func(node *astwalker.Node) astwalker.VisitorFunc {
 
@@ -107,28 +125,45 @@ func InterfaceMethodWalker(h func(pkg, ifc, method, arg, res string)) astwalker.
 			methName := node.Top(1).Children()[0].Ident().Name
 
 			ft := node.FuncType()
-			//> Should have 2 params and 2 results
-			if len(ft.Params.List) == 2 && len(ft.Results.List) == 2 {
 
-				argType := fmt.Sprint(ft.Params.List[1].Type)
-				resType := fmt.Sprint(ft.Results.List[0].Type)
-
-				//> Should have context as 1st param
-				if tpe, ok := ft.Params.List[0].Type.(*ast.SelectorExpr); ok && fmt.Sprint(tpe.X) == "context" && fmt.Sprint(tpe.Sel) == "Context" {
-					//> Should have error as second result
-					if fmt.Sprint(ft.Results.List[1].Type) == "error" {
-						h(pkg, ifcName, methName, argType, resType)
+			var i = 0
+			getParams := func(fields []*ast.Field) (params []Param) {
+				for _, p := range fields {
+					var par Param
+					if len(p.Names) > 0 {
+						for _, n := range p.Names {
+							i++
+							if n.Name == "" {
+								n.Name = fmt.Sprintf("__%d", i)
+							}
+							par.Names = append(par.Names, n.Name)
+						}
 					} else {
-						// TODO Warn
+						i++
+						par.Names = append(par.Names, fmt.Sprintf("__%d", i))
 					}
-				} else {
-					// TODO Warn
+					par.Type = typeName(p.Type)
+					params = append(params, par)
 				}
-			} else {
-				// TODO Warn
+
+				return params
 			}
+
+			var args []Param
+
+			var ress []Param
+
+			if len(ft.Params.List) > 1 {
+				args = getParams(ft.Params.List[1:])
+			}
+
+			if len(ft.Results.List) > 0 {
+				ress = getParams(ft.Results.List)
+			}
+
+			h(pkg, ifcName, methName, args, ress)
 		} else if node.Top(0).IsIdent() &&
-			node.Top(1).IsFile(){
+			node.Top(1).IsFile() {
 			pkg = node.Top(0).Ident().Name
 		}
 		return nil
