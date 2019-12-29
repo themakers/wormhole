@@ -101,12 +101,14 @@ func (rp *remotePeer) ReceiverWorker() error {
 		default:
 		}
 
-		sz, mr, err := rp.dc.MessageReader()
+		sz, mr, freeReader, err := rp.dc.MessageReader()
 		if err != nil {
 			return err
 		}
 
-		go func(sz int, mr wire_io.ValueReader) {
+		go func(sz int, mr wire_io.ValueReader, freeReader func()) {
+			defer freeReader()
+
 			_, err := mr() //> Version
 			if err != nil {
 				panic(err)
@@ -160,7 +162,7 @@ func (rp *remotePeer) ReceiverWorker() error {
 			default:
 				panic("unhandled protocol message")
 			}
-		}(sz, mr)
+		}(sz, mr, freeReader)
 	}
 }
 

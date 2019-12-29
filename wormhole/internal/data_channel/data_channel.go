@@ -12,5 +12,5 @@ type DataChannel interface {
 	Close() error
 
 	MessageWriter(int, func(w wire_io.ValueWriter) error) error
-	MessageReader() (int, wire_io.ValueReader, error)
+	MessageReader() (int, wire_io.ValueReader, func(), error)
 }

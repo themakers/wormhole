@@ -7,7 +7,7 @@ type Reader func(r io.Reader) ValueReader
 type Writer func(w io.Writer) ValueWriter
 
 type Handler interface {
-	NewReader(r io.Reader) (int, ValueReader, error)
+	NewReader(r io.Reader) (int, ValueReader, func(), error)
 	NewWriter(sz int, w io.Writer, wf func(ValueWriter) error) error
 }
 

@@ -24,4 +24,5 @@
 
 ops/benchdraw.out.txt
 
+*.pprof
 *.gen.go.bak

@@ -6,8 +6,38 @@ import (
 	"github.com/themakers/wormhole/wormhole/wire_io"
 	"github.com/tinylib/msgp/msgp"
 	"io"
-	"log"
+	"sync"
 )
+
+var getWriter = func() func(w io.Writer) (*msgp.Writer, func()) {
+	pool := sync.Pool{
+		New: func() interface{} {
+			return msgp.NewWriterSize(nil, 2*1024)
+		},
+	}
+	return func(w io.Writer) (*msgp.Writer, func()) {
+		wr := pool.Get().(*msgp.Writer)
+		wr.Reset(w)
+		return wr, func() {
+			pool.Put(wr)
+		}
+	}
+}()
+
+var getReader = func() func(r io.Reader) (*msgp.Reader, func()) {
+	pool := sync.Pool{
+		New: func() interface{} {
+			return msgp.NewReaderSize(nil, 2*1024)
+		},
+	}
+	return func(r io.Reader) (*msgp.Reader, func()) {
+		rr := pool.Get().(*msgp.Reader)
+		rr.Reset(r)
+		return rr, func() {
+			pool.Put(rr)
+		}
+	}
+}()
 
 ////////////////////////////////////////////////////////////////
 //// Handler
@@ -17,12 +47,23 @@ var Handler wire_io.Handler = new(handler)
 
 type handler struct{}
 
-func (handler) NewReader(r io.Reader) (int, wire_io.ValueReader, error) {
-	return newArrayReader(msgp.NewReader(r))()
+func (handler) NewReader(r io.Reader) (int, wire_io.ValueReader, func(), error) {
+	rr, done := getReader(r)
+	sz, vr, err := newArrayReader(rr)()
+	if err != nil {
+		done()
+		return 0, nil, nil, err
+	} else {
+		return sz, vr, done, err
+	}
 }
 
 func (handler) NewWriter(sz int, w io.Writer, wf func(wire_io.ValueWriter) error) error {
-	mw := msgp.NewWriter(w)
+	mw, done := getWriter(w)
+	defer done()
+
+	//mw := msgp.NewWriter(w)
+
 	if err := mw.WriteArrayHeader(uint32(sz)); err != nil {
 		return err
 	}
@@ -69,9 +110,9 @@ func newValueReader(r *msgp.Reader) wire_io.ValueReader {
 			return nil, err
 		}
 
-		defer func() {
-			log.Println("READ:", v, err)
-		}()
+		//defer func() {
+		//	log.Println("READ:", v, err)
+		//}()
 
 		switch t {
 		case msgp.MapType:
@@ -115,37 +156,37 @@ func newValueWriter(w *msgp.Writer) wire_io.ValueWriter {
 }
 
 func (vw *valueWriter) WriteNil() error {
-	log.Println("WriteNil")
+	//log.Println("WriteNil")
 	return vw.w.WriteNil()
 }
 
 func (vw *valueWriter) WriteString(v string) error {
-	log.Println("WriteString", v)
+	//log.Println("WriteString", v)
 	return vw.w.WriteString(v)
 }
 
 func (vw *valueWriter) WriteInt(v int) error {
-	log.Println("WriteInt", v)
+	//log.Println("WriteInt", v)
 	return vw.w.WriteInt(v)
 }
 
 func (vw *valueWriter) WriteFloat(v float64) error {
-	log.Println("WriteFloat", v)
+	//log.Println("WriteFloat", v)
 	return vw.w.WriteFloat64(v)
 }
 
 func (vw *valueWriter) WriteBoolean(v bool) error {
-	log.Println("WriteBoolean", v)
+	//log.Println("WriteBoolean", v)
 	return vw.w.WriteBool(v)
 }
 
 func (vw *valueWriter) WriteBinary(v []byte) error {
-	log.Println("WriteBinary", v)
+	//log.Println("WriteBinary", v)
 	return vw.w.WriteBytes(v)
 }
 
 func (vw *valueWriter) WriteArray(sz int, wfn func(wire_io.ValueWriter) error) error {
-	log.Println("WriteArray", sz)
+	//log.Println("WriteArray", sz)
 	if err := vw.w.WriteArrayHeader(uint32(sz)); err != nil {
 		return err
 	}
@@ -154,7 +195,7 @@ func (vw *valueWriter) WriteArray(sz int, wfn func(wire_io.ValueWriter) error) e
 }
 
 func (vw *valueWriter) WriteMap(sz int, wfn func(wire_io.MapEntryWriter) error) error {
-	log.Println("WriteMap")
+	//log.Println("WriteMap")
 	if err := vw.w.WriteMapHeader(uint32(sz)); err != nil {
 		return err
 	}

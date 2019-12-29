@@ -4,14 +4,20 @@ package main
 
 import (
 	"context"
+	"github.com/pkg/profile"
 	"github.com/themakers/wormhole/tests/api"
 	"github.com/themakers/wormhole/wormhole"
 	"github.com/themakers/wormhole/wormhole_websocket"
 	"log"
+	"os"
+	"os/signal"
 	"time"
 )
 
 func main() {
+	pp := profile.Start(profile.MemProfile, profile.ProfilePath("./client.pprof"), profile.NoShutdownHook)
+	defer pp.Stop()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -51,5 +57,12 @@ func main() {
 
 	}), "ws://localhost:7532")
 
-	select {}
+	go func() {
+		defer cancel()
+		c := make(chan os.Signal)
+		signal.Notify(c, os.Interrupt)
+		<-c
+	}()
+
+	<-ctx.Done()
 }

@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"testing"
-	"time"
 )
 
 func BenchmarkBasic(b *testing.B) {
@@ -40,7 +39,7 @@ func BenchmarkBasic(b *testing.B) {
 
 func CreateClient(ctx context.Context, port int) api.Greeter {
 	lp := wormhole.NewLocalPeer(nil)
-	defer lp.Close()
+	//defer lp.Close()
 
 	api.RegisterGreeterHandler(lp, func(rp wormhole.RemotePeer) api.Greeter {
 		return &greeter{
@@ -51,14 +50,30 @@ func CreateClient(ctx context.Context, port int) api.Greeter {
 
 	addr := fmt.Sprintf("ws://localhost:%d", port)
 
-	go wormhole_websocket.StayConnected(ctx, lp, addr)
+	peerCh := make(chan wormhole.RemotePeer)
 
-	return api.AcquireKeepAliveGreeter(lp, addr, 2*time.Second)
+	go func() {
+		if err := wormhole_websocket.Connect(ctx, lp, addr, wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
+			//log.Println("server peer connected")
+			peerCh <- peer
+		}, func(peer wormhole.RemotePeer) {
+			//log.Println("server peer disconnected")
+		})); err != nil {
+			//panic(err)
+			//log.Println("client error:", err)
+		}
+	}()
+
+	return api.AcquireGreeter(<-peerCh)
 }
 
 func StartServer(ctx context.Context) int {
 
-	lp := wormhole.NewLocalPeer(nil)
+	lp := wormhole.NewLocalPeer(wormhole.NewPeerCallbacks(func(peer wormhole.RemotePeer) {
+		//log.Println("client peer connected")
+	}, func(peer wormhole.RemotePeer) {
+		//log.Println("client peer disconnected")
+	}))
 	defer lp.Close()
 
 	api.RegisterGreeterHandler(lp, func(rp wormhole.RemotePeer) api.Greeter {

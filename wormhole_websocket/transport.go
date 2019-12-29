@@ -5,13 +5,14 @@ package wormhole_websocket
 import (
 	"bytes"
 	"context"
+	"github.com/gorilla/websocket"
 	"github.com/themakers/wormhole/wormhole"
 	"github.com/themakers/wormhole/wormhole/wire_io"
 	"github.com/themakers/wormhole/wormhole_msgp"
+	"io"
 	"net/http"
+	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 // TODO https://github.com/gobwas/ws ???
@@ -72,6 +73,22 @@ func StayConnected(ctx context.Context, lp wormhole.LocalPeer, pcbs wormhole.Pee
 	}
 }
 
+var getBuffer = func() func() (*bytes.Buffer, func()) {
+	pool := sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 1024))
+			//return new(bytes.Buffer)
+		},
+	}
+	return func() (*bytes.Buffer, func()) {
+		buf := pool.Get().(*bytes.Buffer)
+		buf.Reset()
+		return buf, func() {
+			pool.Put(buf)
+		}
+	}
+}()
+
 ////////////////////////////////////////////////////////////////
 //// Implementation
 ////
@@ -94,27 +111,30 @@ type webSocketChan struct {
 	wfh  wire_io.Handler
 }
 
-func (c *webSocketChan) MessageReader() (sz int, vr wire_io.ValueReader, err error) {
-	_, data, err := c.conn.ReadMessage()
+func (c *webSocketChan) MessageReader() (sz int, vr wire_io.ValueReader, done func(), err error) {
+	_, r, err := c.conn.NextReader()
 
 	if err != nil {
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-			return 0, nil, err
+			return 0, nil, nil, err
 		} else {
-			return 0, nil, wormhole.ErrPeerGone
+			return 0, nil, nil, wormhole.ErrPeerGone
 		}
 	}
 
-	return c.wfh.NewReader(bytes.NewReader(data))
+	buf, done := getBuffer()
+	defer done()
+
+	if _, err := io.Copy(buf, r); err != nil {
+		return 0, nil, nil, err
+	}
+
+	return c.wfh.NewReader(buf)
 }
 
 func (c *webSocketChan) MessageWriter(sz int, mw func(wire_io.ValueWriter) error) error {
-	//wc, err := c.conn.NextWriter(websocket.BinaryMessage)
-	//if err != nil {
-	//	return err
-	//}
-
-	buf := bytes.NewBuffer([]byte{})
+	buf, done := getBuffer()
+	defer done()
 
 	if err := c.wfh.NewWriter(sz, buf, func(vw wire_io.ValueWriter) error {
 		if err := mw(vw); err != nil {
@@ -146,3 +166,9 @@ func (c *webSocketChan) Context() context.Context {
 func (c *webSocketChan) Addr() string {
 	return c.addr
 }
+
+//BenchmarkBasic-8       	    5361	    210164 ns/op	   29703 B/op	     185 allocs/op
+//BenchmarkHTTPBasic-8   	    8775	    143634 ns/op	    6400 B/op	      82 allocs/op
+
+//BenchmarkBasic-8       	    5164	    235032 ns/op	   29473 B/op	     181 allocs/op
+//BenchmarkHTTPBasic-8   	    8853	    132581 ns/op	    6391 B/op	      82 allocs/op

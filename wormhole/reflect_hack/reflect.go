@@ -7,8 +7,11 @@ import (
 	"github.com/themakers/wormhole/wormhole"
 	"github.com/themakers/wormhole/wormhole/internal/remote_peer"
 	"github.com/themakers/wormhole/wormhole/wire_io"
-	"log"
 	"reflect"
+)
+
+const (
+	structAsArray = false
 )
 
 var (
@@ -103,21 +106,46 @@ func writeAny(p wormhole.RemotePeerGenerated, registerRef remote_peer.RegisterUn
 		perror(w.WriteString(registerRef(makeRefFunc(p, rv))))
 
 	case reflect.Struct:
-		perror(w.WriteArray(rv.NumField(), func(w wire_io.ValueWriter) error {
-			for i := 0; i < rv.NumField(); i++ {
-				sf := rt.Field(i)
-				fv := rv.Field(i)
+		if structAsArray {
+			perror(w.WriteArray(rv.NumField(), func(w wire_io.ValueWriter) error {
+				for i := 0; i < rv.NumField(); i++ {
+					sf := rt.Field(i)
+					fv := rv.Field(i)
 
-				if fv.IsValid() {
-					writeAny(p, registerRef, w, sf.Type, fv)
-				} else {
-					// TODO Warn?
-					perror(w.WriteNil())
+					if fv.IsValid() {
+						writeAny(p, registerRef, w, sf.Type, fv)
+					} else {
+						// TODO Warn?
+						perror(w.WriteNil())
+					}
 				}
-			}
 
-			return nil
-		}))
+				return nil
+			}))
+		} else {
+			perror(w.WriteMap(rv.NumField(), func(w wire_io.MapEntryWriter) error {
+				for i := 0; i < rv.NumField(); i++ {
+					sf := rt.Field(i)
+					fv := rv.Field(i)
+
+					if err := w(sf.Name, func(w wire_io.ValueWriter) error {
+
+						if fv.IsValid() {
+							writeAny(p, registerRef, w, sf.Type, fv)
+						} else {
+							// TODO Warn?
+							perror(w.WriteNil())
+						}
+
+						return nil
+					}); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			}))
+		}
 
 	case reflect.Map:
 		keys := rv.MapKeys()
@@ -220,8 +248,6 @@ func makeFuncThatMakesOutgoingCall(p wormhole.RemotePeerGenerated, ft reflect.Ty
 
 		<-doneCtx.Done()
 
-		log.Println("OOPS", ref, len(results))
-
 		return
 	})
 }
@@ -270,19 +296,18 @@ func readAny(p wormhole.RemotePeerGenerated, r wire_io.ValueReader, rt reflect.T
 	case reflect.Ptr:
 		readAny(p, r, rt.Elem(), rv.Elem())
 	case reflect.Func:
-		// TODO
-		//w.WriteString(registerRef(makeRefFunc(p, rv)))
 		val, err := r()
 		perror(err)
 
 		rv.Set(makeFuncThatMakesOutgoingCall(p, rt, val.(string)))
 
 	case reflect.Struct:
-		v, err := r()
+		r, err := r()
 		perror(err)
 
-		if v, ok := v.(wire_io.ArrayReader); ok {
-			sz, v, err := v()
+		switch r := r.(type) {
+		case wire_io.ArrayReader:
+			sz, v, err := r()
 			perror(err)
 
 			n := rv.NumField()
@@ -296,7 +321,31 @@ func readAny(p wormhole.RemotePeerGenerated, r wire_io.ValueReader, rt reflect.T
 
 				readAny(p, v, sf.Type, fv)
 			}
-		} else {
+		case wire_io.MapReader:
+			sz, v, err := r()
+			perror(err)
+
+			var srv = reflect.New(rt).Elem()
+
+			n := rv.NumField()
+			if n != sz {
+				panic("TODO")
+			}
+
+			for i := 0; i < n; i++ {
+				kv, err := v()
+				if err != nil {
+					panic(err)
+				}
+
+				sf, _ := rt.FieldByName(kv.(string))
+				fv := srv.FieldByName(kv.(string))
+
+				readAny(p, v, sf.Type, fv)
+			}
+
+			rv.Set(srv)
+		default:
 			panic("TODO")
 		}
 

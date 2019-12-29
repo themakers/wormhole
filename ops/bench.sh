@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-go generate ../tests
-go test -bench=. -benchmem ../...
+cd ../tests
+go generate
+go test -bench=. -benchmem .

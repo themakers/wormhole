@@ -24,8 +24,10 @@ func TestIO(t *testing.T) {
 	data := buf.Bytes()
 	t.Log(data)
 
-	sz, r, err := Handler.NewReader(bytes.NewReader(data))
+	sz, r, freeReader, err := Handler.NewReader(bytes.NewReader(data))
 	perror(err)
+
+	defer freeReader()
 
 	if sz != 2 {
 		panic("size mismatch")
