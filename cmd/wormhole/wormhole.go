@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/themakers/wormhole/parsex"
-	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/themakers/wormhole/parsex"
+	"golang.org/x/tools/imports"
 )
 
 func PWD() string {
@@ -18,22 +19,14 @@ func PWD() string {
 	return pwd
 }
 
-func parse(wd string) (pkg string, interfaces []*parsex.Interface) {
+func parse(wd string) (string, []*parsex.Interface) {
 	files := listSourceFiles(wd)
 	log.Println(files)
-
-	for _, file := range files {
-		p, err := parsex.Parse(file)
-		if err != nil {
-			panic(err)
-		}
-		if len(p.Interfaces) > 0 {
-			pkg = p.Pkg
-		}
-		interfaces = append(interfaces, p.Interfaces...)
+	p, err := parsex.Parse(files...)
+	if err != nil {
+		panic(err)
 	}
-
-	return
+	return p.Pkg, p.Interfaces
 }
 
 func main() {

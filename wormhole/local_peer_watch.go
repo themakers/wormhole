@@ -3,8 +3,9 @@ package wormhole
 import (
 	"context"
 	"errors"
-	"github.com/rs/xid"
 	"sync"
+
+	"github.com/rs/xid"
 )
 
 type peerWatcher struct {

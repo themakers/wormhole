@@ -2,14 +2,11 @@ package parsex
 
 import (
 	"fmt"
-	"github.com/themakers/wormhole/parsex/astwalker"
 	"go/ast"
-	"go/parser"
-	"go/token"
-	"log"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/themakers/wormhole/parsex/astwalker"
 )
 
 // TODO Implement post loading of unresolved types. i.e. when dir name differ from pkg name, or pkg imported as .
@@ -28,67 +25,102 @@ func PWD() string {
 	return pwd
 }
 
-func Parse(files ...string) (*Parsed, error) {
-	t := &Parsed{
-		InterfacesMap: map[string]*Interface{},
-	}
+// func Parse(files ...string) (*Parsed, error) {
+// 	t := &Parsed{
+// 		InterfacesMap: map[string]*Interface{},
+// 	}
 
-	fset := token.NewFileSet()
+// 	fset := token.NewFileSet()
 
-	for _, file := range files {
-		file := filepath.Clean(file)
+// 	for _, file := range files {
+// 		file = filepath.Clean(file)
+// 		if !filepath.IsAbs(file) {
+// 			return nil, ErrNotAbsoluteFilePath
+// 		}
 
-		if !filepath.IsAbs(file) {
-			panic("Only absolute paths are allowed. " + file)
-		}
+// 		log.Println("parsing", file)
 
-		log.Println("parsing", file)
+// 		file, err := parser.ParseFile(fset, file, nil, 0)
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		f, err := parser.ParseFile(fset, file, nil, parser.ParseComments) // |parser.Trace
-		if err != nil {
-			return nil, err
-		}
+// 		for _, importSpec := range file.Imports {
+// 			path := importSpec.Path.Value
+// 			log.Printf("IMPORT %s", path)
 
-		//fileStr := (func() string {
-		//	data, err := ioutil.ReadFile(file)
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//	return string(data)
-		//})()
+// 		}
 
-		//pkgPath := strings.TrimPrefix(strings.TrimSuffix(strings.TrimSuffix(file, filepath.Base(file)), "/"), GOSRC+"/")
-		//pkgName := f.Message.Message
+// 		astwalker.WalkAST(file, nil, func(node *astwalker.Node) astwalker.VisitorFunc {
+// 			shift := strings.Repeat("--*", node.Depth())
+// 			log.Printf("%s #%d :: @%d :: %s\n", shift, node.Node().Pos(), node.Depth(), node.String())
 
-		fmt.Println(strings.Repeat("•", 64))
-		astwalker.WalkAST(f, nil, testWalker()).Root().Children()[0].Children()
-		fmt.Println(strings.Repeat("•", 64))
-		astwalker.WalkAST(f, nil, InterfaceMethodWalker(func(pkg, ifcName, method string, arg, res []Param) {
-			t.Pkg = pkg
+// 			return nil
+// 		})
+// 	}
 
-			ifc := t.InterfacesMap[ifcName]
-			if ifc == nil {
-				ifc = &Interface{
-					Name:       ifcName,
-					MethodsMap: map[string]*Method{},
-				}
-				t.Interfaces = append(t.Interfaces, ifc)
-				t.InterfacesMap[ifcName] = ifc
-			}
+// 	panic("FINISH")
 
-			meth := &Method{
-				Interface: ifcName,
-				Name:      method,
-				Args:      arg,
-				Rets:      res,
-			}
+// 	return nil, nil
 
-			ifc.Methods = append(ifc.Methods, meth)
-			ifc.MethodsMap[meth.Name] = meth
-		}))
-	}
+// 	for _, file := range files {
+// 		file := filepath.Clean(file)
 
-	return t, nil
+// 		if !filepath.IsAbs(file) {
+// 			panic("Only absolute paths are allowed. " + file)
+// 		}
+
+// 		log.Println("parsing", file)
+
+// 		f, err := parser.ParseFile(fset, file, nil, parser.ParseComments) // |parser.Trace
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		//fileStr := (func() string {
+// 		//	data, err := ioutil.ReadFile(file)
+// 		//	if err != nil {
+// 		//		panic(err)
+// 		//	}
+// 		//	return string(data)
+// 		//})()
+
+// 		//pkgPath := strings.TrimPrefix(strings.TrimSuffix(strings.TrimSuffix(file, filepath.Base(file)), "/"), GOSRC+"/")
+// 		//pkgName := f.Message.Message
+
+// 		fmt.Println(strings.Repeat("•", 64))
+// 		astwalker.WalkAST(f, nil, testWalker()).Root().Children()[0].Children()
+// 		fmt.Println(strings.Repeat("•", 64))
+// 		astwalker.WalkAST(f, nil, InterfaceMethodWalker(func(pkg, ifcName, method string, arg, res []Param) {
+// 			t.Pkg = pkg
+
+// 			ifc := t.InterfacesMap[ifcName]
+// 			if ifc == nil {
+// 				ifc = &Interface{
+// 					Name:       ifcName,
+// 					MethodsMap: map[string]*Method{},
+// 				}
+// 				t.Interfaces = append(t.Interfaces, ifc)
+// 				t.InterfacesMap[ifcName] = ifc
+// 			}
+
+// 			meth := &Method{
+// 				Interface: ifcName,
+// 				Name:      method,
+// 				Args:      arg,
+// 				Rets:      res,
+// 			}
+
+// 			ifc.Methods = append(ifc.Methods, meth)
+// 			ifc.MethodsMap[meth.Name] = meth
+// 		}))
+// 	}
+
+// 	return t, nil
+// }
+
+func getDepGraph(pkg string) (depgraph.DepGraph, error) {
+
 }
 
 func typeName(e ast.Expr) string {
