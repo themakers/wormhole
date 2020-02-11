@@ -1,8 +1,34 @@
 package dependency
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 type Tree map[string]Tree
+
+func (t Tree) String() string {
+	return strings.Join(stringify(t, 0), "\n")
+}
+
+func stringify(t Tree, i int) []string {
+	var res []string
+
+	for pkg, deps := range t {
+		res = append(res, fmt.Sprintf(
+			"%s %s",
+			strings.Repeat("-- ", i),
+			pkg,
+		))
+
+		if deps != nil {
+			res = append(res, stringify(deps, i+1)...)
+		}
+	}
+
+	return res
+}
 
 type Graph map[string]map[string]bool
 
@@ -42,6 +68,14 @@ func (g Graph) treeView(n string) Tree {
 	return res
 }
 
+func (g Graph) AddNode(n string) bool {
+	if g[n] == nil {
+		g[n] = make(map[string]bool)
+		return true
+	}
+	return false
+}
+
 func (g Graph) SetDependency(src, dst string) {
 	deps := g[src]
 	if deps == nil {
@@ -51,10 +85,10 @@ func (g Graph) SetDependency(src, dst string) {
 	deps[dst] = true
 }
 
-func (g Graph) FindLoops() [][2]string {
+func (g Graph) FindLoops() Loops {
 	res := make([][2]string, 0)
 	g = g.Copy()
-	g.sort()
+	g.Sort()
 
 	for src, deps := range g {
 		for dst, ok := range deps {
@@ -74,13 +108,13 @@ func (g Graph) Copy() Graph {
 		for k, v := range v {
 			d[k] = v
 		}
-		g[k] = d
+		res[k] = d
 	}
 	return res
 }
 
 // WARNING: destructive
-func (g Graph) sort() []string {
+func (g Graph) Sort() []string {
 	var startNodes, res []string
 
 	for n := range g {
@@ -88,6 +122,9 @@ func (g Graph) sort() []string {
 			startNodes = append(startNodes, n)
 		}
 	}
+
+	fmt.Println("START_NODES")
+	fmt.Println(startNodes)
 
 	for len(startNodes) > 0 {
 		n := startNodes[0]
@@ -98,7 +135,7 @@ func (g Graph) sort() []string {
 			if ok {
 				g[n][d] = false
 				if !g.isDependency(d) {
-					startNodes = append(startNodes, n)
+					startNodes = append(startNodes, d)
 				}
 			}
 		}
@@ -114,4 +151,14 @@ func (g Graph) isDependency(n string) bool {
 		}
 	}
 	return false
+}
+
+type Loops [][2]string
+
+func (l Loops) String() string {
+	res := make([]string, len(l))
+	for i, loop := range l {
+		res[i] = fmt.Sprintf("%s <-> %s", loop[0], loop[1])
+	}
+	return strings.Join(res, "\n")
 }

@@ -3,7 +3,11 @@ package message
 import (
 	"errors"
 	"strings"
+
+	"github.com/themakers/wormhole/parsex"
 )
+
+var _ = parsex.PWD()
 
 type Name string
 

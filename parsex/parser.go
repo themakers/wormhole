@@ -3,10 +3,15 @@ package parsex
 import (
 	"fmt"
 	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/themakers/wormhole/parsex/astwalker"
+	"github.com/themakers/wormhole/parsex/dependency"
 )
 
 // TODO Implement post loading of unresolved types. i.e. when dir name differ from pkg name, or pkg imported as .
@@ -15,6 +20,7 @@ var (
 	GOROOT = filepath.Clean(os.Getenv("GOROOT"))
 	GOPATH = filepath.Clean(os.Getenv("GOPATH"))
 	GOSRC  = filepath.Join(GOPATH, "src")
+	GOSTD  = filepath.Join(GOROOT, "src")
 )
 
 func PWD() string {
@@ -23,6 +29,35 @@ func PWD() string {
 		panic(err)
 	}
 	return pwd
+}
+
+func Parse(pkgPath string) (*Parsed, error) {
+	p, err := NewParserX(pkgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.buildDepGraph(pkgPath); err != nil {
+		panic(err)
+		return nil, err
+	}
+
+	loops := p.depGraph.FindLoops()
+	fmt.Println(len(loops))
+	fmt.Println(loops)
+	fmt.Println("\n\n\n\n\n\n\ndep graph was built")
+
+	// {
+	// 	g := p.depGraph.Copy()
+	// 	spew.Dump(map[string]map[string]bool(g))
+	// 	res := g.Sort()
+	// 	spew.Dump(res)
+	// 	spew.Dump(map[string]map[string]bool(g))
+	// }
+	// fmt.Println(p.depGraph.TreeView())
+
+	panic("FINISH")
+	return nil, nil
 }
 
 // func Parse(files ...string) (*Parsed, error) {
@@ -119,8 +154,114 @@ func PWD() string {
 // 	return t, nil
 // }
 
-func getDepGraph(pkg string) (depgraph.DepGraph, error) {
+type parserx struct {
+	pkgPath string
+	// fset     *token.FileSet
+	depGraph dependency.Graph
+}
 
+// func (p *parser) getDepGraph(pkgPath string) (dependency.Graph, error) {
+// 	return nil, nil
+// }
+
+func NewParserX(pkgPath string) (*parserx, error) {
+	pkgPath = filepath.Clean(pkgPath)
+	if !filepath.IsAbs(pkgPath) {
+		return nil, fmt.Errorf(
+			"Provided file path isn't absolute: %s",
+			pkgPath,
+		)
+	}
+
+	return &parserx{
+		pkgPath: pkgPath,
+		// fset:     token.NewFileSet(),
+		depGraph: dependency.NewGraph(),
+	}, nil
+}
+
+func (p *parserx) buildDepGraph(pkgPath string) error {
+	fmt.Println("NEW ITERATION", pkgPath)
+	defer fmt.Println("END ITERATION")
+
+	if !p.depGraph.AddNode(pkgPath) {
+		fmt.Println("WAS PARSED")
+		return nil
+	}
+
+	pkgs, err := parser.ParseDir(
+		token.NewFileSet(),
+		pkgPath,
+		nil,
+		parser.ImportsOnly,
+	)
+	fmt.Println("PARSED FILES: ", pkgs)
+	if err != nil {
+		return err
+	}
+
+	var pkgName string
+	{
+		var (
+			fmtStr string
+			i      int
+		)
+		for pkg := range pkgs {
+			if !strings.HasSuffix(pkg, "_test") {
+				fmtStr += fmt.Sprintf(" %s", pkg)
+				pkgName = pkg
+				i++
+			}
+		}
+		if i == 0 {
+			fmt.Println("ERR 1")
+			return fmt.Errorf(
+				"No Go packages were defined in specified directory",
+			)
+		} else if i > 1 {
+			fmt.Println("ERR 2")
+			return fmt.Errorf("" +
+				"More than 1 package were defined in specified directory:" +
+				fmtStr,
+			)
+		}
+	}
+
+	imps := make(map[string]struct{})
+	for id, file := range pkgs[pkgName].Files {
+		fmt.Println("FILE: ", id, " ", len(file.Imports))
+		for _, imp := range file.Imports {
+			s := imp.Path.Value
+			imps[s[1:len(s)-1]] = struct{}{}
+		}
+	}
+
+	for imp := range imps {
+		fmt.Printf("AAA %s: %s\n", pkgName, imp)
+		var impPath string
+		if _, err := os.Stat(path.Join(GOSRC, imp)); !os.IsNotExist(err) {
+			impPath = path.Join(GOSRC, imp)
+			if err := p.buildDepGraph(impPath); err != nil {
+				return err
+			}
+		} else if _, err := os.Stat(path.Join(GOSTD, imp)); !os.IsNotExist(err) {
+			impPath = path.Join(GOSTD, imp)
+		} else {
+			return fmt.Errorf("Package weren't found: %s", imp)
+		}
+
+		p.depGraph.SetDependency(pkgPath, impPath)
+		if loops := p.depGraph.FindLoops(); len(loops) > 0 {
+			return fmt.Errorf("Found loops: %v", loops)
+		}
+	}
+
+	return nil
+}
+
+func (p *parserx) parse(pkgPath string) (*ast.File, error) {
+	// parser.ParseDir(p.fset, pkgPath, nil, parser.ParseComments)
+	return nil, nil
 }
 
 func typeName(e ast.Expr) string {

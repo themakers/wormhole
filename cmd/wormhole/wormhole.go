@@ -22,7 +22,7 @@ func PWD() string {
 func parse(wd string) (string, []*parsex.Interface) {
 	files := listSourceFiles(wd)
 	log.Println(files)
-	p, err := parsex.Parse(files...)
+	p, err := parsex.Parse(wd)
 	if err != nil {
 		panic(err)
 	}
