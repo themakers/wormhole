@@ -16,6 +16,8 @@ import (
 )
 
 // TODO https://github.com/gobwas/ws ???
+// TODO https://www.freecodecamp.org/news/million-websockets-and-go-cc58418460bb/
+// TODO https://github.com/mailru/easygo/tree/master/netpoll
 
 func Acceptor(lp wormhole.LocalPeer) http.Handler {
 	var upgrader = websocket.Upgrader{
@@ -166,9 +168,3 @@ func (c *webSocketChan) Context() context.Context {
 func (c *webSocketChan) Addr() string {
 	return c.addr
 }
-
-//BenchmarkBasic-8       	    5361	    210164 ns/op	   29703 B/op	     185 allocs/op
-//BenchmarkHTTPBasic-8   	    8775	    143634 ns/op	    6400 B/op	      82 allocs/op
-
-//BenchmarkBasic-8       	    5164	    235032 ns/op	   29473 B/op	     181 allocs/op
-//BenchmarkHTTPBasic-8   	    8853	    132581 ns/op	    6391 B/op	      82 allocs/op
