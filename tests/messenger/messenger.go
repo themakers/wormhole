@@ -5,6 +5,7 @@ import (
 
 	"github.com/themakers/wormhole/tests/messenger/message"
 	"github.com/themakers/wormhole/tests/messenger/user"
+	"github.com/themakers/wormhole/tests/w"
 )
 
 //go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
@@ -23,6 +24,8 @@ type MessengerSignUpReq struct {
 
 type MessengerSignUpResp struct {
 }
+
+w.W
 
 // type Greeter interface {
 // 	Hello(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)

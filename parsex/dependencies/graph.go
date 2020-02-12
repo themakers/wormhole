@@ -1,35 +1,11 @@
-package dependency
+package dependencies
 
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
-type Tree map[string]Tree
-
-func (t Tree) String() string {
-	return strings.Join(stringify(t, 0), "\n")
-}
-
-func stringify(t Tree, i int) []string {
-	var res []string
-
-	for pkg, deps := range t {
-		res = append(res, fmt.Sprintf(
-			"%s %s",
-			strings.Repeat("-- ", i),
-			pkg,
-		))
-
-		if deps != nil {
-			res = append(res, stringify(deps, i+1)...)
-		}
-	}
-
-	return res
-}
-
+// Graph nodes shouldn't be empty strings
 type Graph map[string]map[string]bool
 
 func NewGraph() Graph {
@@ -77,28 +53,19 @@ func (g Graph) AddNode(n string) bool {
 }
 
 func (g Graph) SetDependency(src, dst string) {
+	if dst == "" || src == "" {
+		panic(errors.New("Graph nodes shouldn't be empty strings"))
+	}
+
 	deps := g[src]
 	if deps == nil {
 		deps = make(map[string]bool)
 		g[src] = deps
 	}
-	deps[dst] = true
-}
-
-func (g Graph) FindLoops() Loops {
-	res := make([][2]string, 0)
-	g = g.Copy()
-	g.Sort()
-
-	for src, deps := range g {
-		for dst, ok := range deps {
-			if ok {
-				res = append(res, [2]string{src, dst})
-			}
-		}
+	if g[dst] == nil {
+		g[dst] = make(map[string]bool)
 	}
-
-	return res
+	deps[dst] = true
 }
 
 func (g Graph) Copy() Graph {
@@ -151,14 +118,4 @@ func (g Graph) isDependency(n string) bool {
 		}
 	}
 	return false
-}
-
-type Loops [][2]string
-
-func (l Loops) String() string {
-	res := make([]string, len(l))
-	for i, loop := range l {
-		res[i] = fmt.Sprintf("%s <-> %s", loop[0], loop[1])
-	}
-	return strings.Join(res, "\n")
 }

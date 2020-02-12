@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/themakers/wormhole/parsex/astwalker"
-	"github.com/themakers/wormhole/parsex/dependency"
+	"github.com/themakers/wormhole/parsex/dependencies"
 )
 
 // TODO Implement post loading of unresolved types. i.e. when dir name differ from pkg name, or pkg imported as .
@@ -43,18 +43,21 @@ func Parse(pkgPath string) (*Parsed, error) {
 	}
 
 	loops := p.depGraph.FindLoops()
-	fmt.Println(len(loops))
-	fmt.Println(loops)
-	fmt.Println("\n\n\n\n\n\n\ndep graph was built")
+	if len(loops) > 0 {
+		msg := make([]string, len(loops))
+		for i, loop := range loops {
+			pkgs := make([]string, len(loop))
+			for i, pkg := range loop {
+				pkgs[i] = pkg
+			}
+			msg[i] = strings.Join(pkgs, "\n")
+		}
 
-	// {
-	// 	g := p.depGraph.Copy()
-	// 	spew.Dump(map[string]map[string]bool(g))
-	// 	res := g.Sort()
-	// 	spew.Dump(res)
-	// 	spew.Dump(map[string]map[string]bool(g))
-	// }
-	// fmt.Println(p.depGraph.TreeView())
+		return nil, fmt.Errorf(
+			"Loops were found:\n%s",
+			strings.Join(msg, "\n\n"),
+		)
+	}
 
 	panic("FINISH")
 	return nil, nil
@@ -157,10 +160,10 @@ func Parse(pkgPath string) (*Parsed, error) {
 type parserx struct {
 	pkgPath string
 	// fset     *token.FileSet
-	depGraph dependency.Graph
+	depGraph dependencies.Graph
 }
 
-// func (p *parser) getDepGraph(pkgPath string) (dependency.Graph, error) {
+// func (p *parser) getDepGraph(pkgPath string) (dependencies.Graph, error) {
 // 	return nil, nil
 // }
 
@@ -176,7 +179,7 @@ func NewParserX(pkgPath string) (*parserx, error) {
 	return &parserx{
 		pkgPath: pkgPath,
 		// fset:     token.NewFileSet(),
-		depGraph: dependency.NewGraph(),
+		depGraph: dependencies.NewGraph(),
 	}, nil
 }
 
@@ -251,9 +254,9 @@ func (p *parserx) buildDepGraph(pkgPath string) error {
 		}
 
 		p.depGraph.SetDependency(pkgPath, impPath)
-		if loops := p.depGraph.FindLoops(); len(loops) > 0 {
-			return fmt.Errorf("Found loops: %v", loops)
-		}
+		// if loops := p.depGraph.FindLoops(); len(loops) > 0 {
+		// 	return fmt.Errorf("Found loops: %v", loops)
+		// }
 	}
 
 	return nil
