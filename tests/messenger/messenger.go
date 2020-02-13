@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/themakers/wormhole/tests/messenger/message"
-	"github.com/themakers/wormhole/tests/messenger/user"
-	"github.com/themakers/wormhole/tests/w"
+	userPackage "github.com/themakers/wormhole/tests/messenger/user"
 )
 
 //go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
 
 type Messenger interface {
 	SignUp(context.Context, MessengerSignUpReq) error
-	ListUsers(context.Context) ([]user.User, error)
-	Text(context.Context, user.User, message.Data) error
+	ListUsers(context.Context) ([]userPackage.User, error)
+	Text(context.Context, userPackage.User, message.Data) error
 }
 
 type MessengerSignUpReq struct {
@@ -24,8 +23,6 @@ type MessengerSignUpReq struct {
 
 type MessengerSignUpResp struct {
 }
-
-w.W
 
 // type Greeter interface {
 // 	Hello(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)

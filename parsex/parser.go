@@ -48,7 +48,7 @@ func Parse(pkgPath string) (*Parsed, error) {
 		for i, loop := range loops {
 			pkgs := make([]string, len(loop))
 			for i, pkg := range loop {
-				pkgs[i] = pkg
+				pkgs[i] = pkg.Path
 			}
 			msg[i] = strings.Join(pkgs, "\n")
 		}
@@ -187,7 +187,7 @@ func (p *parserx) buildDepGraph(pkgPath string) error {
 	fmt.Println("NEW ITERATION", pkgPath)
 	defer fmt.Println("END ITERATION")
 
-	if !p.depGraph.AddNode(pkgPath) {
+	if !p.depGraph.AddNode(dependencies.Vertex{}) {
 		fmt.Println("WAS PARSED")
 		return nil
 	}
@@ -253,7 +253,7 @@ func (p *parserx) buildDepGraph(pkgPath string) error {
 			return fmt.Errorf("Package weren't found: %s", imp)
 		}
 
-		p.depGraph.SetDependency(pkgPath, impPath)
+		p.depGraph.SetDependency(dependencies.Vertex{}, dependencies.Vertex{})
 		// if loops := p.depGraph.FindLoops(); len(loops) > 0 {
 		// 	return fmt.Errorf("Found loops: %v", loops)
 		// }

@@ -1,26 +1,26 @@
 package dependencies
 
 type vertex struct {
-	self    string
+	self    Vertex
 	onStack bool
 	lowLink int
 	index   int
 	visited bool
-	desc    []string
+	desc    []Vertex
 }
 
 // Graph.FindLoops() uses Tarjan's algorithm
-func (g Graph) FindLoops() [][]string {
+func (g Graph) FindLoops() [][]Vertex {
 	var (
-		res   [][]string
+		res   [][]Vertex
 		stack []*vertex
 		index int
 	)
 
-	vertexes := make(map[string]*vertex, len(g))
+	vertexes := make(map[Vertex]*vertex, len(g))
 	for v := range g {
 		deps := g[v]
-		desc := make([]string, len(deps))
+		desc := make([]Vertex, len(deps))
 		{
 			var i int
 			for dep := range deps {
@@ -61,7 +61,7 @@ func (g Graph) FindLoops() [][]string {
 		}
 
 		if v.lowLink == v.index {
-			var cycle []string
+			var cycle []Vertex
 
 			for {
 				w := stack[len(stack)-1]

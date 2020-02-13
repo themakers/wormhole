@@ -1,13 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/parsex"
+	"github.com/themakers/wormhole/wormparse"
 	"golang.org/x/tools/imports"
 )
 
@@ -22,11 +25,27 @@ func PWD() string {
 func parse(wd string) (string, []*parsex.Interface) {
 	files := listSourceFiles(wd)
 	log.Println(files)
-	p, err := parsex.Parse(wd)
+	// p, err := parsex.Parse(wd)
+	pkg, err := wormparse.Parse(wd)
 	if err != nil {
-		panic(err)
+		switch v := err.(type) {
+		case wormparse.Loops:
+			fmt.Println("LOOPS")
+			spew.Dump(v)
+		case wormparse.Loop:
+			fmt.Println("LOOP")
+			spew.Dump(v)
+		default:
+			panic(err)
+		}
+
 	}
-	return p.Pkg, p.Interfaces
+
+	spew.Dump(pkg)
+
+	panic("FINISH")
+
+	return "", nil
 }
 
 func main() {
