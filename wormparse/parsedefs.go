@@ -18,7 +18,7 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, []Funct
 
 	matchBasicType := func(t string) (Type, error) {
 		res := Type{
-			Basic: true,
+			Builtin: true,
 		}
 		switch t {
 		case "bool":
@@ -172,7 +172,7 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, []Funct
 					tag = field.Tag.Value
 				}
 
-				s[field.Names[0].Name] = TagTypePair{
+				s[field.Names[0].Name] = StructField{
 					Tag:  tag,
 					Type: t,
 				}
@@ -261,7 +261,7 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, []Funct
 		if err != nil {
 			return Method{}, err
 		}
-		meth.Reciever = t
+		meth.Receiver = t
 
 		err = parseFuncSignature(dec.Type, &meth.Signature)
 		return meth, err
