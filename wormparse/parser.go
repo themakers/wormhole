@@ -55,7 +55,10 @@ func Parse(pkgPath string) (*Package, error) {
 			return nil, err
 		}
 
-		var pkgName string
+		var (
+			pkgName string
+			stdLibs = make(map[string]struct{})
+		)
 		{
 			{
 				var (
@@ -124,6 +127,7 @@ func Parse(pkgPath string) (*Package, error) {
 						Package: pkg,
 					}
 				} else if _, err := os.Stat(path.Join(GOSTD, imp)); !os.IsNotExist(err) {
+					stdLibs[imp] = struct{}{}
 					impPath := path.Join(GOSTD, imp)
 					var name string
 					{
@@ -153,7 +157,11 @@ func Parse(pkgPath string) (*Package, error) {
 			}
 		}
 
-		res.Types, err = ParseTypes(res.Info, pkgs[pkgName])
+		res.Types, res.Methods, err = _parse(
+			stdLibs,
+			res.Info,
+			pkgs[pkgName],
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -165,75 +173,19 @@ func Parse(pkgPath string) (*Package, error) {
 	return parse(pkgPath, "", make(map[string]int))
 }
 
-func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
+func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) {
 	var (
-		pass   = errors.New("pass")
-		parse  func(ast.Node) (Type, error)
-		_parse func(ast.Node) (interface{}, error)
+		pass                  = errors.New("pass")
+		parseTypeDefinition   func(*ast.TypeSpec) (Type, error)
+		parseMethodDefinition func(ast.Node) (Method, error)
+		parseTypeDeclaration  func(ast.Node) (interface{}, error)
 	)
-	parse = func(node ast.Node) (res Type, err error) {
-		switch v := node.(type) {
-		case *ast.TypeSpec:
-			res.Name = v.Name.Name
-			res.Definition, err = _parse(v.Type)
-			return
 
-		case *ast.ImportSpec:
-			return res, pass
-		case *ast.CommentGroup:
-			return res, pass
-		case *ast.Comment:
-			return res, pass
-		case *ast.GenDecl:
-			return res, pass
-		default:
-			fmt.Println("TROLOLO")
-			spew.Dump(node)
-			return Type{}, errors.New("No option")
-		}
-
-		return Type{}, nil
-	}
-
-	parseFuncSignature := func(node *ast.FuncType, f *Function) error {
-		for _, param := range node.Params.List {
-			var n string
-			if len(param.Names) > 0 {
-				n = param.Names[0].Name
-			}
-			v, err := _parse(param.Type)
-			if err != nil {
-				return err
-			}
-			f.Args = append(f.Args, NameTypePair{
-				Name: n,
-				Type: v.(Type),
-			})
-		}
-
-		for _, res := range node.Results.List {
-			var n string
-			if len(res.Names) > 0 {
-				n = res.Names[0].Name
-			}
-			v, err := _parse(res.Type)
-			if err != nil {
-				return err
-			}
-			f.Return = append(f.Return, NameTypePair{
-				Name: n,
-				Type: v.(Type),
-			})
-		}
-
-		return nil
-	}
-
-	parseBasicTypes := func(node *ast.Ident) (Type, error) {
+	matchBasicType := func(t string) (Type, error) {
 		res := Type{
-			Std: true,
+			Basic: true,
 		}
-		switch v := node.Name; v {
+		switch t {
 		case "bool":
 			fallthrough
 		case "int":
@@ -255,75 +207,253 @@ func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
 		case "byte":
 			fallthrough
 		case "error":
-			res.Name = v
+			res.Name = t
 		default:
-			return res, fmt.Errorf("No std type matches: %s", spew.Sdump(node))
+			return res, fmt.Errorf("No std type matches: %s", t)
 		}
 
 		return res, nil
 	}
 
-	_parse = func(node ast.Node) (interface{}, error) {
-		switch v := node.(type) {
-		case *ast.InterfaceType:
-			var res Interface
-			for _, field := range v.Methods.List {
-				var f Function
-				f.Name = field.Names[0].Name
-				if err := parseFuncSignature(field.Type.(*ast.FuncType), &f); err != nil {
-					return nil, err
-				}
-				res.Methods = append(res.Methods, f)
+	parseFuncSignature := func(node *ast.FuncType, f *Function) error {
+		for _, param := range node.Params.List {
+			var n string
+			if len(param.Names) > 0 {
+				n = param.Names[0].Name
 			}
-			return res, nil
-		// case *ast.StarExpr:
-		// 	 parse(v.X)
-		default:
-			ident, ok := v.(*ast.Ident)
-			if ok {
-				return parseBasicTypes(ident)
+			v, err := parseTypeDeclaration(param.Type)
+			if err != nil {
+				return err
 			}
-			fmt.Println("KEY2")
-			spew.Dump(v)
-			return Type{}, errors.New("No option")
+			f.Args = append(f.Args, NameTypePair{
+				Name: n,
+				Type: v.(Type),
+			})
 		}
+
+		for _, res := range node.Results.List {
+			var n string
+			if len(res.Names) > 0 {
+				n = res.Names[0].Name
+			}
+			v, err := parseTypeDeclaration(res.Type)
+			if err != nil {
+				return err
+			}
+			f.Return = append(f.Return, NameTypePair{
+				Name: n,
+				Type: v.(Type),
+			})
+		}
+
+		return nil
 	}
 
-	var res []Type
+	isIgnorable := func(node ast.Node) bool {
+		switch node.(type) {
+		case *ast.ImportSpec:
+		case *ast.CommentGroup:
+		case *ast.Comment:
+		default:
+			return false
+		}
+		return true
+	}
+
+	parseTypeDefinition = func(d *ast.TypeSpec) (res Type, err error) {
+		res.Name = d.Name.Name
+
+		switch n := d.Type.(type) {
+		case *ast.InterfaceType:
+			var i Interface
+			for _, field := range n.Methods.List {
+				var f Function
+				f.Name = field.Names[0].Name
+				if err := parseFuncSignature(
+					field.Type.(*ast.FuncType),
+					&f,
+				); err != nil {
+					return Type{}, err
+				}
+				i.Methods = append(i.Methods, f)
+			}
+			res.Definition = i
+
+		case *ast.StructType:
+			var s Struct
+			for _, field := range n.Fields.List {
+				t, err := parseTypeDeclaration(field.Type)
+				if err != nil {
+					return Type{}, err
+				}
+
+				var tag string
+				if field.Tag != nil {
+					tag = field.Tag.Value
+				}
+
+				s[field.Names[0].Name] = TagTypePair{
+					Tag:  tag,
+					Type: t,
+				}
+			}
+		}
+
+		return res, nil
+	}
+
+	parseTypeDeclaration = func(node ast.Node) (res interface{}, err error) {
+		switch n := node.(type) {
+		case *ast.Field:
+			// var name string
+			// if len(n.Names) == 1 {
+			// 	name = n.Names[0].Name
+			// }
+			ident, ok := n.Type.(*ast.Ident)
+			if ok {
+				t, err := matchBasicType(ident.Name)
+				if err == nil {
+					return t, nil
+				}
+			}
+			panic("What's next?")
+
+		case *ast.Ident:
+			t, err := matchBasicType(n.Name)
+			if err == nil {
+				return t, nil
+			}
+			panic("What's next?")
+
+		case *ast.SelectorExpr:
+			return Type{
+				From: n.X.(*ast.Ident).Name,
+				Name: n.Sel.Name,
+			}, nil
+
+		default:
+			// if isIgnorable(n) {
+			// 	return nil, nil
+			// }
+			return nil, fmt.Errorf(
+				"No match for type declaration: %s",
+				spew.Sdump(n),
+			)
+		}
+
+		return nil, pass
+	}
+
+	parseMethodDefinition = func(node ast.Node) (res Method, err error) {
+		return Method{}, nil
+	}
+	parseMethodDefinition(nil)
+
+	var (
+		types   []Type
+		methods []Method
+		parse   func(node ast.Node) error
+	)
+
+	parse = func(node ast.Node) error {
+		switch n := node.(type) {
+		case *ast.GenDecl:
+			for _, spec := range n.Specs {
+				if err := parse(spec); err != nil {
+					return err
+				}
+			}
+		case *ast.TypeSpec:
+			t, err := parseTypeDefinition(n)
+			if err != nil {
+				return err
+			}
+			types = append(types, t)
+		default:
+			if isIgnorable(node) {
+				return nil
+			}
+
+			return errors.New("No matches")
+		}
+
+		return nil
+	}
+
 	for _, file := range pkg.Files {
 
 		if file.Name.Name != "user" {
 			continue
 		}
 
-		fmt.Println(file.Name.Name)
 		spew.Dump(file)
 
 		for _, decl := range file.Decls {
-			switch v := decl.(type) {
-			case *ast.GenDecl:
-				for _, spec := range v.Specs {
-					t, err := parse(spec)
-					if err == pass {
-						continue
-					}
-					if err != nil {
-						return nil, err
-					}
-					res = append(res, t)
-				}
-			default:
-				return nil, errors.New("Something strange happened")
+			if err := parse(decl); err != nil {
+				return nil, nil, err
 			}
-
-			// fmt.Println("OLOLO", len(file.Decls))
-			t, err := parse(decl)
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, t)
 		}
 	}
 
-	return res, nil
+	return types, methods, nil
+
+	// parse = func(node ast.Node) (res Type, err error) {
+	// 	switch v := node.(type) {
+	// 	case *ast.TypeSpec:
+	// 		res.Name = v.Name.Name
+	// 		res.Definition, err = _parse(v.Type)
+	// 		return
+
+	// 	case *ast.ImportSpec:
+	// 		return res, pass
+	// 	case *ast.CommentGroup:
+	// 		return res, pass
+	// 	case *ast.Comment:
+	// 		return res, pass
+	// 	case *ast.GenDecl:
+	// 		return res, pass
+	// 	default:
+	// 		fmt.Println("TROLOLO")
+	// 		spew.Dump(node)
+	// 		return Type{}, errors.New("No option")
+	// 	}
+
+	// 	return Type{}, nil
+	// }
+
+	// var res []Type
+	// for _, file := range pkg.Files {
+
+	// 	if file.Name.Name != "user" {
+	// 		continue
+	// 	}
+
+	// 	fmt.Println(file.Name.Name)
+	// 	spew.Dump(file)
+
+	// 	for _, decl := range file.Decls {
+	// 		switch v := decl.(type) {
+	// 		case *ast.GenDecl:
+	// 			for _, spec := range v.Specs {
+	// 				t, err := parse(spec)
+	// 				if err == pass {
+	// 					continue
+	// 				}
+	// 				if err != nil {
+	// 					return nil, err
+	// 				}
+	// 				res = append(res, t)
+	// 			}
+	// 		default:
+	// 			return nil, errors.New("Something strange happened")
+	// 		}
+
+	// 		// fmt.Println("OLOLO", len(file.Decls))
+	// 		t, err := parse(decl)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		res = append(res, t)
+	// 	}
+	// }
 }

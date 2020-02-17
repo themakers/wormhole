@@ -3,8 +3,6 @@ package wormparse
 import (
 	"os"
 	"path/filepath"
-
-	"github.com/themakers/wormhole/wormparse/datatypes"
 )
 
 var (
@@ -43,16 +41,17 @@ type (
 
 type (
 	Type struct {
-		Std        bool
+		Basic      bool
 		From       string
 		Name       string
-		DataType   datatypes.DataType
 		Definition interface{}
 	}
 
-	Struct map[string]struct {
+	Struct map[string]TagTypePair
+
+	TagTypePair struct {
 		Tag  string
-		Type Type
+		Type interface{}
 	}
 
 	Slice struct {
@@ -74,10 +73,8 @@ type (
 	}
 
 	Function struct {
-		Name string // empty string means that function is anonymous
-
-		Args []NameTypePair
-
+		Name   string // empty string means that function is anonymous
+		Args   []NameTypePair
 		Return []NameTypePair
 	}
 
