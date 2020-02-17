@@ -1,10 +1,12 @@
 package user
 
-type User interface {
-	SetPublicity(bool) error
+import "time"
 
-	GetInfo() *struct {
-		FirstName string
-		LastName  string
-	}
+type User interface {
+	SetPublicity(bool, time.Time) error
+
+	// GetInfo() *struct {
+	// 	FirstName string
+	// 	LastName  string
+	// }
 }

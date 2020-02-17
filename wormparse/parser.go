@@ -167,6 +167,7 @@ func Parse(pkgPath string) (*Package, error) {
 
 func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
 	var (
+		pass   = errors.New("pass")
 		parse  func(ast.Node) (Type, error)
 		_parse func(ast.Node) (interface{}, error)
 	)
@@ -175,13 +176,16 @@ func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
 		case *ast.TypeSpec:
 			res.Name = v.Name.Name
 			res.Definition, err = _parse(v.Type)
-			if err != nil {
-				return
-			}
+			return
+
+		case *ast.ImportSpec:
+			return res, pass
+		case *ast.CommentGroup:
+			return res, pass
+		case *ast.Comment:
+			return res, pass
 		case *ast.GenDecl:
-			for _, spec := range v.Specs {
-				return parse(spec)
-			}
+			return res, pass
 		default:
 			fmt.Println("TROLOLO")
 			spew.Dump(node)
@@ -249,17 +253,14 @@ func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
 		case "rune":
 			fallthrough
 		case "byte":
+			fallthrough
+		case "error":
 			res.Name = v
 		default:
 			return res, fmt.Errorf("No std type matches: %s", spew.Sdump(node))
 		}
 
 		return res, nil
-		// switch node.Obj.Type {
-
-		// } {
-		// }
-
 	}
 
 	_parse = func(node ast.Node) (interface{}, error) {
@@ -269,15 +270,21 @@ func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
 			for _, field := range v.Methods.List {
 				var f Function
 				f.Name = field.Names[0].Name
-				parseFuncSignature(field.Type.(*ast.FuncType), &f)
+				if err := parseFuncSignature(field.Type.(*ast.FuncType), &f); err != nil {
+					return nil, err
+				}
 				res.Methods = append(res.Methods, f)
 			}
 			return res, nil
+		// case *ast.StarExpr:
+		// 	 parse(v.X)
 		default:
 			ident, ok := v.(*ast.Ident)
 			if ok {
 				return parseBasicTypes(ident)
 			}
+			fmt.Println("KEY2")
+			spew.Dump(v)
 			return Type{}, errors.New("No option")
 		}
 	}
@@ -293,7 +300,23 @@ func ParseTypes(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, error) {
 		spew.Dump(file)
 
 		for _, decl := range file.Decls {
-			fmt.Println("OLOLO")
+			switch v := decl.(type) {
+			case *ast.GenDecl:
+				for _, spec := range v.Specs {
+					t, err := parse(spec)
+					if err == pass {
+						continue
+					}
+					if err != nil {
+						return nil, err
+					}
+					res = append(res, t)
+				}
+			default:
+				return nil, errors.New("Something strange happened")
+			}
+
+			// fmt.Println("OLOLO", len(file.Decls))
 			t, err := parse(decl)
 			if err != nil {
 				return nil, err
