@@ -29,9 +29,6 @@ func parse(wd string) (string, []*parsex.Interface) {
 	pkg, err := wormparse.Parse(wd)
 	if err != nil {
 		switch v := err.(type) {
-		case wormparse.Loops:
-			fmt.Println("LOOPS")
-			spew.Dump(v)
 		case wormparse.Loop:
 			fmt.Println("LOOP")
 			spew.Dump(v)

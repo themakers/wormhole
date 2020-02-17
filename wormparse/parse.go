@@ -25,9 +25,7 @@ func Parse(pkgPath string) (*Package, error) {
 
 		pkgIndx, ok := prev[pkgFullPath]
 		if ok {
-			return nil, Loop{
-				index: pkgIndx,
-			}
+			return nil, Loop(pkgFullPath)
 		}
 
 		var res Package
