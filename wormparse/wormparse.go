@@ -55,21 +55,21 @@ type (
 	}
 
 	Slice struct {
-		Type Type
+		Type interface{}
 	}
 
 	Array struct {
 		Len  int
-		Type Type
+		Type interface{}
 	}
 
 	Map struct {
-		From Type
-		To   Type
+		From interface{}
+		To   interface{}
 	}
 
 	Pointer struct {
-		Type Type
+		Type interface{}
 	}
 
 	Function struct {
@@ -80,7 +80,7 @@ type (
 
 	NameTypePair struct {
 		Name string
-		Type Type
+		Type interface{}
 	}
 	Interface struct {
 		Methods []Function

@@ -241,7 +241,7 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 			}
 			f.Return = append(f.Return, NameTypePair{
 				Name: n,
-				Type: v.(Type),
+				Type: v,
 			})
 		}
 
@@ -283,7 +283,6 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 
 	parseTypeDeclaration = func(node ast.Node) (res interface{}, err error) {
 		switch n := node.(type) {
-
 		case *ast.StructType:
 			s := make(Struct)
 			for _, field := range n.Fields.List {
@@ -303,6 +302,11 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 				}
 			}
 			return s, err
+
+		case *ast.FuncType:
+			var f Function
+			err := parseFuncSignature(n, &f)
+			return f, err
 
 		case *ast.InterfaceType:
 			var i Interface
@@ -335,13 +339,23 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 			if err == nil {
 				return t, nil
 			}
-			panic("What's next?")
-			return nil, nil
+			return Type{
+				Name: n.Name,
+			}, nil
 
 		case *ast.SelectorExpr:
 			return Type{
 				From: n.X.(*ast.Ident).Name,
 				Name: n.Sel.Name,
+			}, nil
+
+		case *ast.StarExpr:
+			t, err := parseTypeDeclaration(n.X)
+			if err != nil {
+				return nil, nil
+			}
+			return Pointer{
+				Type: t,
 			}, nil
 
 		default:
@@ -382,6 +396,9 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 			if isIgnorable(node) {
 				return nil
 			}
+
+			fmt.Println("Got ya")
+			spew.Dump(n)
 
 			return errors.New("No matches")
 		}
