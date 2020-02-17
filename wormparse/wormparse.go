@@ -33,9 +33,9 @@ type (
 	}
 
 	Method struct {
-		Type       Type
-		UsePointer bool
-		Signature  Function
+		Name      string
+		Reciever  interface{}
+		Signature Function
 	}
 )
 

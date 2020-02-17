@@ -34,6 +34,6 @@ type (
 	}
 )
 
-// func (t *TestType) JustAnotherPerlHacker(a int, b uint) error {
-// 	return nil
-// }
+func (t *TestType) JustAnotherPerlHacker(a int, b uint) error {
+	return nil
+}

@@ -176,7 +176,7 @@ func Parse(pkgPath string) (*Package, error) {
 func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) {
 	var (
 		parseTypeDefinition   func(*ast.TypeSpec) (Type, error)
-		parseMethodDefinition func(ast.Node) (Method, error)
+		parseMethodDefinition func(*ast.FuncDecl) (Method, error)
 		parseTypeDeclaration  func(ast.Node) (interface{}, error)
 	)
 
@@ -331,7 +331,6 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 					return t, nil
 				}
 			}
-			panic("What's next?")
 			return nil, nil
 
 		case *ast.Ident:
@@ -366,10 +365,22 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 		}
 	}
 
-	parseMethodDefinition = func(node ast.Node) (res Method, err error) {
-		return Method{}, nil
+	parseMethodDefinition = func(dec *ast.FuncDecl) (Method, error) {
+		var meth Method
+
+		meth.Name = dec.Name.Name
+
+		spew.Dump("DEBUG", dec)
+
+		t, err := parseTypeDeclaration(dec.Recv.List[0].Type)
+		if err != nil {
+			return Method{}, err
+		}
+		meth.Reciever = t
+
+		err = parseFuncSignature(dec.Type, &meth.Signature)
+		return meth, err
 	}
-	parseMethodDefinition(nil)
 
 	var (
 		types   []Type
@@ -378,7 +389,6 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 	)
 
 	parse = func(node ast.Node) error {
-		fmt.Printf("MOKOKOKO: %s", spew.Sdump(node))
 		switch n := node.(type) {
 		case *ast.GenDecl:
 			for _, spec := range n.Specs {
@@ -386,19 +396,28 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 					return err
 				}
 			}
+
 		case *ast.TypeSpec:
 			t, err := parseTypeDefinition(n)
 			if err != nil {
 				return err
 			}
 			types = append(types, t)
+
+		case *ast.FuncDecl:
+			if n.Recv == nil {
+				return nil
+			}
+			meth, err := parseMethodDefinition(n)
+			if err != nil {
+				return err
+			}
+			methods = append(methods, meth)
+
 		default:
 			if isIgnorable(node) {
 				return nil
 			}
-
-			fmt.Println("Got ya")
-			spew.Dump(n)
 
 			return errors.New("No matches")
 		}
@@ -407,13 +426,6 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 	}
 
 	for _, file := range pkg.Files {
-
-		if file.Name.Name != "user" {
-			continue
-		}
-
-		spew.Dump(file)
-
 		for _, decl := range file.Decls {
 			if err := parse(decl); err != nil {
 				return nil, nil, err
