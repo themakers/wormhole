@@ -6,7 +6,15 @@ import (
 )
 
 type TestType struct {
-	Data int
+	Data    int
+	Scanner scanner.Position `json:"pos"`
+	Subdoc  struct {
+		a uint
+		b string
+		e error
+		d time.Duration
+		r rune
+	}
 }
 
 type User interface {

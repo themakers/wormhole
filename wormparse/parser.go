@@ -175,7 +175,6 @@ func Parse(pkgPath string) (*Package, error) {
 
 func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) {
 	var (
-		pass                  = errors.New("pass")
 		parseTypeDefinition   func(*ast.TypeSpec) (Type, error)
 		parseMethodDefinition func(ast.Node) (Method, error)
 		parseTypeDeclaration  func(ast.Node) (interface{}, error)
@@ -265,22 +264,28 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 
 		switch n := d.Type.(type) {
 		case *ast.InterfaceType:
-			var i Interface
-			for _, field := range n.Methods.List {
-				var f Function
-				f.Name = field.Names[0].Name
-				if err := parseFuncSignature(
-					field.Type.(*ast.FuncType),
-					&f,
-				); err != nil {
-					return Type{}, err
-				}
-				i.Methods = append(i.Methods, f)
+			var err error
+			res.Definition, err = parseTypeDeclaration(n)
+			if err != nil {
+				return Type{}, err
 			}
-			res.Definition = i
 
 		case *ast.StructType:
-			var s Struct
+			var err error
+			res.Definition, err = parseTypeDeclaration(n)
+			if err != nil {
+				return Type{}, err
+			}
+		}
+
+		return res, nil
+	}
+
+	parseTypeDeclaration = func(node ast.Node) (res interface{}, err error) {
+		switch n := node.(type) {
+
+		case *ast.StructType:
+			s := make(Struct)
 			for _, field := range n.Fields.List {
 				t, err := parseTypeDeclaration(field.Type)
 				if err != nil {
@@ -297,18 +302,24 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 					Type: t,
 				}
 			}
-		}
+			return s, err
 
-		return res, nil
-	}
+		case *ast.InterfaceType:
+			var i Interface
+			for _, field := range n.Methods.List {
+				var f Function
+				f.Name = field.Names[0].Name
+				if err := parseFuncSignature(
+					field.Type.(*ast.FuncType),
+					&f,
+				); err != nil {
+					return Type{}, err
+				}
+				i.Methods = append(i.Methods, f)
+			}
+			return i, nil
 
-	parseTypeDeclaration = func(node ast.Node) (res interface{}, err error) {
-		switch n := node.(type) {
 		case *ast.Field:
-			// var name string
-			// if len(n.Names) == 1 {
-			// 	name = n.Names[0].Name
-			// }
 			ident, ok := n.Type.(*ast.Ident)
 			if ok {
 				t, err := matchBasicType(ident.Name)
@@ -317,6 +328,7 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 				}
 			}
 			panic("What's next?")
+			return nil, nil
 
 		case *ast.Ident:
 			t, err := matchBasicType(n.Name)
@@ -324,6 +336,7 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 				return t, nil
 			}
 			panic("What's next?")
+			return nil, nil
 
 		case *ast.SelectorExpr:
 			return Type{
@@ -332,16 +345,11 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 			}, nil
 
 		default:
-			// if isIgnorable(n) {
-			// 	return nil, nil
-			// }
 			return nil, fmt.Errorf(
 				"No match for type declaration: %s",
 				spew.Sdump(n),
 			)
 		}
-
-		return nil, pass
 	}
 
 	parseMethodDefinition = func(node ast.Node) (res Method, err error) {
@@ -356,6 +364,7 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 	)
 
 	parse = func(node ast.Node) error {
+		fmt.Printf("MOKOKOKO: %s", spew.Sdump(node))
 		switch n := node.(type) {
 		case *ast.GenDecl:
 			for _, spec := range n.Specs {
