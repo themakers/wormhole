@@ -14,10 +14,11 @@ var (
 
 type (
 	Package struct {
-		Info    PackageInfo
-		Imports []Import
-		Types   []Type
-		Methods []Method
+		Info      PackageInfo
+		Imports   []Import
+		Types     []Type
+		Methods   []Method
+		Functions []Function
 	}
 
 	PackageInfo struct {
@@ -84,5 +85,9 @@ type (
 	}
 	Interface struct {
 		Methods []Function
+	}
+
+	Chan struct {
+		Type interface{}
 	}
 )

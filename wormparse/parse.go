@@ -149,7 +149,7 @@ func Parse(pkgPath string) (*Package, error) {
 			}
 		}
 
-		res.Types, res.Methods, err = parseDefs(
+		res.Types, res.Methods, res.Functions, err = parseDefs(
 			res.Info,
 			pkgs[pkgName],
 		)

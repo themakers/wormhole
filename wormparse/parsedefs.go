@@ -1,7 +1,6 @@
 package wormparse
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"strconv"
@@ -9,11 +8,12 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) {
+func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, []Function, error) {
 	var (
 		parseTypeDefinition   func(*ast.TypeSpec) (Type, error)
 		parseMethodDefinition func(*ast.FuncDecl) (Method, error)
 		parseTypeDeclaration  func(ast.Node) (interface{}, error)
+		fileName              string
 	)
 
 	matchBasicType := func(t string) (Type, error) {
@@ -62,7 +62,7 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) 
 			}
 			f.Args = append(f.Args, NameTypePair{
 				Name: n,
-				Type: v.(Type),
+				Type: v,
 			})
 		}
 
@@ -172,6 +172,9 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) 
 					tag = field.Tag.Value
 				}
 
+				spew.Dump("File name", fileName)
+				spew.Dump("TEST TEST", field)
+
 				s[field.Names[0].Name] = TagTypePair{
 					Tag:  tag,
 					Type: t,
@@ -227,9 +230,20 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) 
 		case *ast.StarExpr:
 			t, err := parseTypeDeclaration(n.X)
 			if err != nil {
-				return nil, nil
+				return nil, err
 			}
 			return Pointer{
+				Type: t,
+			}, nil
+
+		case *ast.ChanType:
+			t, err := parseTypeDeclaration(
+				n.Value.(*ast.Ident),
+			)
+			if err != nil {
+				return nil, err
+			}
+			return Chan{
 				Type: t,
 			}, nil
 
@@ -256,10 +270,24 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) 
 		return meth, err
 	}
 
+	parseFuncDefinition := func(dec *ast.FuncDecl) (Function, error) {
+		var f Function
+		if dec.Name == nil {
+			return Function{}, fmt.Errorf(
+				"Invalid function definition: no name were specified: %s",
+				spew.Sdump(dec),
+			)
+		}
+		f.Name = dec.Name.Name
+		err := parseFuncSignature(dec.Type, &f)
+		return f, err
+	}
+
 	var (
-		types   []Type
-		methods []Method
-		parse   func(node ast.Node) error
+		types     []Type
+		methods   []Method
+		functions []Function
+		parse     func(node ast.Node) error
 	)
 
 	parse = func(node ast.Node) error {
@@ -280,32 +308,42 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, error) 
 
 		case *ast.FuncDecl:
 			if n.Recv == nil {
-				return nil
+				f, err := parseFuncDefinition(n)
+				if err != nil {
+					return nil
+				}
+				functions = append(functions, f)
+			} else {
+				meth, err := parseMethodDefinition(n)
+				if err != nil {
+					return err
+				}
+				methods = append(methods, meth)
 			}
-			meth, err := parseMethodDefinition(n)
-			if err != nil {
-				return err
-			}
-			methods = append(methods, meth)
 
 		default:
 			if isIgnorable(node) {
 				return nil
 			}
 
-			return errors.New("No matches")
+			return fmt.Errorf(
+				"No matches %s %s",
+				fileName,
+				spew.Sdump(n),
+			)
 		}
 
 		return nil
 	}
 
 	for _, file := range pkg.Files {
+		fileName = file.Name.Name
 		for _, decl := range file.Decls {
 			if err := parse(decl); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		}
 	}
 
-	return types, methods, nil
+	return types, methods, functions, nil
 }
