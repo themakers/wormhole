@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/themakers/wormhole/parsex"
 	"github.com/themakers/wormhole/wormparse"
 	"golang.org/x/tools/imports"
 )
@@ -22,7 +21,7 @@ func PWD() string {
 	return pwd
 }
 
-func parse(wd string) (string, []*parsex.Interface) {
+func parse(wd string) *wormparse.Package {
 	files := listSourceFiles(wd)
 	log.Println(files)
 	// p, err := parsex.Parse(wd)
@@ -42,9 +41,7 @@ func parse(wd string) (string, []*parsex.Interface) {
 
 	spew.Dump(pkg)
 
-	// panic("FINISH")
-
-	return "", nil
+	return pkg
 }
 
 func main() {
@@ -77,12 +74,12 @@ func main() {
 			//	}
 			//})()
 		}
-		pkg, ifaces := parse(PWD())
-		if len(ifaces) == 0 {
-			return
-		}
+		pkg := parse(PWD())
+		// if len(ifaces) == 0 {
+		// 	return
+		// }
 
-		code := []byte(Render(pkg, ifaces))
+		code := []byte(Render(pkg))
 		writeCode(outFile, code)
 		code, err := imports.Process(outFile, code, &imports.Options{
 			Fragment:   false,

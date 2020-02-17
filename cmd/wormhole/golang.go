@@ -1,33 +1,33 @@
 package main
 
 import (
-	"bytes"
-	"github.com/themakers/wormhole/parsex"
-	"text/template"
+	"github.com/themakers/wormhole/wormparse"
 )
 
-func Render(pkg string, ifcs []*parsex.Interface) string {
+func Render(pkg *wormparse.Package) string {
 
-	model := struct {
-		Pkg  string
-		Ifcs []*parsex.Interface
-	}{
-		Pkg:  pkg,
-		Ifcs: ifcs,
-	}
+	// model := struct {
+	// 	Pkg  string
+	// 	Ifcs []*parsex.Interface
+	// }{
+	// 	Pkg:  pkg,
+	// 	Ifcs: ifcs,
+	// }
 
-	t, err := template.New("golang").Parse(tmpl)
-	if err != nil {
-		panic(err)
-	}
+	// t, err := template.New("golang").Parse(tmpl)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	buf := bytes.NewBuffer([]byte{})
+	// buf := bytes.NewBuffer([]byte{})
 
-	if err := t.Execute(buf, model); err != nil {
-		panic(err)
-	}
+	// if err := t.Execute(buf, model); err != nil {
+	// 	panic(err)
+	// }
 
-	return buf.String()
+	// return buf.String()
+
+	return ""
 }
 
 const tmpl = `
