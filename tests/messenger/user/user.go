@@ -1,7 +1,5 @@
 package user
 
-import "github.com/themakers/wormhole/tests/messenger/message"
-
 type User interface {
 	SetPublicity(bool) error
 

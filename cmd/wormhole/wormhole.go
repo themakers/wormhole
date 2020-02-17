@@ -41,9 +41,11 @@ func parse(wd string) (string, []*parsex.Interface) {
 
 	}
 
+	fmt.Println("\n\n\n\n###### DONE ########\n\n\n\n")
+
 	spew.Dump(pkg)
 
-	panic("FINISH")
+	// panic("FINISH")
 
 	return "", nil
 }
