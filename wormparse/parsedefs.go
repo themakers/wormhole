@@ -172,9 +172,6 @@ func parseDefs(pkgInfo PackageInfo, pkg *ast.Package) ([]Type, []Method, []Funct
 					tag = field.Tag.Value
 				}
 
-				spew.Dump("File name", fileName)
-				spew.Dump("TEST TEST", field)
-
 				s[field.Names[0].Name] = TagTypePair{
 					Tag:  tag,
 					Type: t,

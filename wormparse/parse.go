@@ -42,12 +42,28 @@ func Parse(pkgPath string) (*Package, error) {
 		pkgs, err := parser.ParseDir(
 			token.NewFileSet(),
 			pkgFullPath,
-			nil,
+			func(info os.FileInfo) bool {
+				fmt.Println("OLOLO", info.Name())
+
+				if strings.HasSuffix(info.Name(), "_test.go") {
+					fmt.Println(info.Name())
+					return false
+				}
+
+				if strings.HasSuffix(info.Name(), ".gen.go") {
+					fmt.Println(info.Name())
+					return false
+				}
+
+				return true
+			},
 			0,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		fmt.Println("SHITTY")
 
 		var pkgName string
 		{
@@ -57,11 +73,9 @@ func Parse(pkgPath string) (*Package, error) {
 					i      int
 				)
 				for pkg := range pkgs {
-					if !strings.HasSuffix(pkg, "_test") {
-						fmtStr += fmt.Sprintf("\n%s", pkg)
-						pkgName = pkg
-						i++
-					}
+					fmtStr += fmt.Sprintf("\n%s", pkg)
+					pkgName = pkg
+					i++
 				}
 				if i == 0 {
 					return nil, PackagingError(fmt.Errorf(""+

@@ -10,7 +10,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/wormparse"
-	"golang.org/x/tools/imports"
 )
 
 func PWD() string {
@@ -45,12 +44,12 @@ func parse(wd string) *wormparse.Package {
 }
 
 func main() {
-	writeCode := func(fname string, code []byte) {
-		err := ioutil.WriteFile(fname, code, 0777)
-		if err != nil {
-			panic(err)
-		}
-	}
+	// writeCode := func(fname string, code []byte) {
+	// 	err := ioutil.WriteFile(fname, code, 0777)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 	switch os.Args[1] {
 	case "go":
@@ -74,25 +73,25 @@ func main() {
 			//	}
 			//})()
 		}
-		pkg := parse(PWD())
+		_ = parse(PWD())
 		// if len(ifaces) == 0 {
 		// 	return
 		// }
 
-		code := []byte(Render(pkg))
-		writeCode(outFile, code)
-		code, err := imports.Process(outFile, code, &imports.Options{
-			Fragment:   false,
-			AllErrors:  true,
-			Comments:   true,
-			TabIndent:  true,
-			TabWidth:   8,
-			FormatOnly: false,
-		})
-		if err != nil {
-			panic(err)
-		}
-		writeCode(outFile, code)
+		// code := []byte(Render(pkg))
+		// writeCode(outFile, code)
+		// code, err := imports.Process(outFile, code, &imports.Options{
+		// 	Fragment:   false,
+		// 	AllErrors:  true,
+		// 	Comments:   true,
+		// 	TabIndent:  true,
+		// 	TabWidth:   8,
+		// 	FormatOnly: false,
+		// })
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// writeCode(outFile, code)
 
 	default:
 		log.Println("usage:?")
