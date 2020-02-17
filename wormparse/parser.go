@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
@@ -230,6 +231,10 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 			})
 		}
 
+		if node.Results == nil {
+			return nil
+		}
+
 		for _, res := range node.Results.List {
 			var n string
 			if len(res.Names) > 0 {
@@ -283,6 +288,42 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 
 	parseTypeDeclaration = func(node ast.Node) (res interface{}, err error) {
 		switch n := node.(type) {
+		case *ast.MapType:
+			k, err := parseTypeDeclaration(n.Key)
+			if err != nil {
+				return nil, err
+			}
+			v, err := parseTypeDeclaration(n.Value)
+			if err != nil {
+				return nil, err
+			}
+
+			return Map{
+				Key:   k,
+				Value: v,
+			}, nil
+
+		case *ast.ArrayType:
+			t, err := parseTypeDeclaration(n.Elt)
+			if err != nil {
+				return nil, err
+			}
+
+			if n.Len == nil {
+				return Slice{
+					Type: t,
+				}, nil
+			}
+
+			l, err := strconv.Atoi(n.Len.(*ast.BasicLit).Value)
+			if err != nil {
+				return nil, err
+			}
+			return Array{
+				Len:  l,
+				Type: t,
+			}, nil
+
 		case *ast.StructType:
 			s := make(Struct)
 			for _, field := range n.Fields.List {
@@ -369,8 +410,6 @@ func _parse(stdLibs map[string]struct{}, pkgInfo PackageInfo, pkg *ast.Package) 
 		var meth Method
 
 		meth.Name = dec.Name.Name
-
-		spew.Dump("DEBUG", dec)
 
 		t, err := parseTypeDeclaration(dec.Recv.List[0].Type)
 		if err != nil {

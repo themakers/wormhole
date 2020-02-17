@@ -26,7 +26,10 @@ type (
 	}
 
 	CAP struct {
+		arr     [2]int
+		sl      []byte
 		closure func(i int) func(TestType) error
+		m       map[string]interface{}
 	}
 
 	User interface {

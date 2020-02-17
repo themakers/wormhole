@@ -64,8 +64,8 @@ type (
 	}
 
 	Map struct {
-		From interface{}
-		To   interface{}
+		Key   interface{}
+		Value interface{}
 	}
 
 	Pointer struct {
