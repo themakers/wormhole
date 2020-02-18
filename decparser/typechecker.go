@@ -9,6 +9,9 @@ type globalScope struct {
 	implicit    map[string]types.Type
 	definitions map[string]*types.Definition
 	methods     map[string]*types.Method
+	defs        map[string]*types.Definition
+	// implementedMethods   map[string]*types.Method
+	// implementedFunctions map[string]*types.Function // For the future
 }
 type typeChecker struct {
 	pkg    *types.Package
@@ -60,12 +63,11 @@ func (tc *typeChecker) newPackage(info types.PackageInfo, imports []types.Import
 	}, pkg
 }
 
-func (tc *typeChecker) def(name string, declaration types.Type, std bool) *types.Definition {
+func (tc *typeChecker) def(name string, declaration types.Type) *types.Definition {
 	def := &types.Definition{
 		Name:        name,
 		Declaration: declaration,
 		Exported:    isExported(name),
-		Std:         std,
 		Package:     tc.pkg,
 	}
 
@@ -74,6 +76,48 @@ func (tc *typeChecker) def(name string, declaration types.Type, std bool) *types
 		tc.global.definitions[def.Hash()] = def
 		d = def
 	}
+
+	return d
+}
+
+func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
+	def := &types.Definition{
+		Name:        name,
+		Declaration: declaration,
+		Exported:    isExported(name),
+	}
+	// for _, imp := range tc.pkg.Imports {
+	// 	if imp.Alias == from || imp.Package.Info.PkgName == from {
+	// 		def.Package = imp.Package
+	// 	}
+	// }
+
+	if def.Package == nil {
+		panic("TROLOLO OLOLO")
+	}
+
+	d, ok := tc.global.definitions[def.Hash()]
+	if !ok {
+		tc.global.definitions[def.Hash()] = def
+		d = def
+	}
+
+	return d
+}
+
+func (tc *typeChecker) meth(name string, t types.Type, f *types.Function) *types.Method {
+	m := &types.Method{
+		Name:      name,
+		Type:      t,
+		Signature: f,
+	}
+
+	d, ok := tc.global.methods[m.Hash()]
+	if !ok {
+		tc.global.methods[m.Hash()] = m
+		d = m
+	}
+
 	return d
 }
 
@@ -100,11 +144,42 @@ func (tc *typeChecker) implStruct(fields []types.StructField) *types.Struct {
 	return s
 }
 
-func (tc *typeChecker) implInterface(methods []*types.Function) *types.Interface {
+func (tc *typeChecker) implInter(methods []*types.Method) *types.Interface {
 	i := &types.Interface{
 		Methods: methods,
 	}
 	return tc.checkImplicit(i).(*types.Interface)
+}
+
+func (tc *typeChecker) implFunc(args []types.NameTypePair, results []types.NameTypePair) *types.Function {
+	f := &types.Function{
+		Args:    args,
+		Results: results,
+	}
+	return tc.checkImplicit(f).(*types.Function)
+}
+
+func (tc *typeChecker) implMap(key, value types.Type) *types.Map {
+	m := &types.Map{
+		Key:   key,
+		Value: value,
+	}
+	return tc.checkImplicit(m).(*types.Map)
+}
+
+func (tc *typeChecker) implSlice(t types.Type) *types.Slice {
+	s := &types.Slice{
+		Type: t,
+	}
+	return tc.checkImplicit(s).(*types.Slice)
+}
+
+func (tc *typeChecker) implArray(l int, t types.Type) *types.Array {
+	a := &types.Array{
+		Len:  l,
+		Type: t,
+	}
+	return tc.checkImplicit(a).(*types.Array)
 }
 
 func (tc *typeChecker) checkImplicit(t types.Type) types.Type {

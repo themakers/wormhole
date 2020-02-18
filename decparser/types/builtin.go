@@ -1,5 +1,7 @@
 package types
 
+import "errors"
+
 var _ Type = Byte
 
 const (
@@ -12,6 +14,7 @@ const (
 	Byte
 	String
 	Rune
+	Bool
 	Error
 )
 
@@ -43,6 +46,8 @@ func (b Builtin) String() string {
 		return "string"
 	case Rune:
 		return "rune"
+	case Bool:
+		return "bool"
 	case Error:
 		return "error"
 	default:
@@ -51,30 +56,34 @@ func (b Builtin) String() string {
 	}
 }
 
-func String2Builtin(s string) Builtin {
+func String2Builtin(s string) (res Builtin, err error) {
 	switch s {
 	case "int":
-		return Int
+		res = Int
 	case "int32":
-		return Int32
+		res = Int32
 	case "int64":
-		return Int64
+		res = Int64
 	case "uint":
-		return Uint
+		res = Uint
 	case "uint32":
-		return Uint32
+		res = Uint32
 	case "uint64":
-		return Uint64
+		res = Uint64
 	case "byte":
-		return Byte
+		res = Byte
 	case "string":
-		return String
+		res = String
 	case "rune":
-		return Rune
+		res = Rune
+	case "bool":
+		res = Bool
 	case "error":
-		return Error
+		res = Error
 	default:
-		panic("Invalid builtin type")
-		return Byte
+		err = errors.New(
+			"There's no builtin type that matches input string",
+		)
 	}
+	return
 }

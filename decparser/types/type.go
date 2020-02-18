@@ -11,3 +11,17 @@ type Type interface {
 }
 
 var hash h.Hash = sha256.New()
+
+var Untyped Type = untyped{}
+
+type untyped struct{}
+
+func (u untyped) Hash() string {
+	return string(
+		hash.Sum([]byte(u.String())),
+	)
+}
+
+func (_ untyped) String() string {
+	return "???"
+}

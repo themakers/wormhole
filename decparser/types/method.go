@@ -1,8 +1,11 @@
 package types
 
+import "fmt"
+
 var _ Type = &Method{}
 
 type Method struct {
+	Name      string
 	Type      Type
 	Signature *Function
 }
@@ -13,6 +16,11 @@ func (m *Method) Hash() string {
 	)
 }
 
+const methodTmpl = "%s."
+
 func (m *Method) String() string {
-	return m.Signature.String()
+	return fmt.Sprintf(
+		methodTmpl,
+		m.Signature.String(),
+	)
 }

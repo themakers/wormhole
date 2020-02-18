@@ -7,9 +7,11 @@ import (
 
 var _ Type = &Interface{}
 
-type Interface struct {
-	Methods []*Function
-}
+type (
+	Interface struct {
+		Methods []*Method
+	}
+)
 
 func (i *Interface) Hash() string {
 	return string(
