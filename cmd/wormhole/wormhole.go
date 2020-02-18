@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/themakers/wormhole/decparser"
 	"github.com/themakers/wormhole/wormparse"
 )
 
@@ -24,7 +25,9 @@ func parse(wd string) *wormparse.Package {
 	files := listSourceFiles(wd)
 	log.Println(files)
 	// p, err := parsex.Parse(wd)
-	pkg, err := wormparse.Parse(wd)
+	// pkg, err := wormparse.Parse(wd)
+	// res, err := decparse.Parse(wd)
+	res, err := decparser.Parse(wd)
 	if err != nil {
 		switch v := err.(type) {
 		case wormparse.Loop:
@@ -38,9 +41,11 @@ func parse(wd string) *wormparse.Package {
 
 	fmt.Println("\n\n\n\n###### DONE ########\n\n\n\n")
 
-	spew.Dump(pkg)
+	spew.Dump(res)
 
-	return pkg
+	panic("FINISH")
+
+	return nil
 }
 
 func main() {

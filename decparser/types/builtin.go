@@ -50,3 +50,31 @@ func (b Builtin) String() string {
 		return ""
 	}
 }
+
+func String2Builtin(s string) Builtin {
+	switch s {
+	case "int":
+		return Int
+	case "int32":
+		return Int32
+	case "int64":
+		return Int64
+	case "uint":
+		return Uint
+	case "uint32":
+		return Uint32
+	case "uint64":
+		return Uint64
+	case "byte":
+		return Byte
+	case "string":
+		return String
+	case "rune":
+		return Rune
+	case "error":
+		return Error
+	default:
+		panic("Invalid builtin type")
+		return Byte
+	}
+}

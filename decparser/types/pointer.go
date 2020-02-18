@@ -2,6 +2,8 @@ package types
 
 import "fmt"
 
+var _ Type = &Pointer{}
+
 type Pointer struct {
 	Type Type
 }

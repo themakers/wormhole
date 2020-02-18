@@ -6,10 +6,13 @@ var _ Type = &Package{}
 
 type (
 	Package struct {
-		Info        PackageInfo
-		Imports     []Import
-		ImportsMap  map[PackageInfo]*Definition
-		Definitions []*Definition
+		Info           PackageInfo
+		Imports        []Import
+		ImportsMap     map[PackageInfo]Import
+		Definitions    []*Definition
+		DefinitionsMap map[string]*Definition
+		Methods        []*Method
+		MethodsMap     map[string]*Method
 	}
 
 	PackageInfo struct {

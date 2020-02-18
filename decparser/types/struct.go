@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
+var _ Type = &Struct{}
+
 type (
 	Struct struct {
-		Fields    []*StructField
-		FieldsMap map[string]*StructField
+		Fields    []StructField
+		FieldsMap map[string]StructField
 	}
 
 	StructField struct {

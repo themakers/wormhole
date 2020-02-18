@@ -7,9 +7,10 @@ var _ Type = &Definition{}
 type Definition struct {
 	Name        string
 	Declaration Type
-	Exported    bool
 	Package     *Package
-	Methods     []*Function
+	Methods     []*Method
+	Exported    bool
+	Std         bool
 }
 
 func (d *Definition) Hash() string {
