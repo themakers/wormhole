@@ -43,8 +43,6 @@ func Parse(pkgPath string) (*Package, error) {
 			token.NewFileSet(),
 			pkgFullPath,
 			func(info os.FileInfo) bool {
-				fmt.Println("OLOLO", info.Name())
-
 				if strings.HasSuffix(info.Name(), "_test.go") {
 					fmt.Println(info.Name())
 					return false
@@ -62,8 +60,6 @@ func Parse(pkgPath string) (*Package, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		fmt.Println("SHITTY")
 
 		var pkgName string
 		{
