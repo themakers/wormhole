@@ -8,7 +8,7 @@ var _ Type = &Array{}
 
 type Array struct {
 	Len  int
-	Type interface{}
+	Type Type
 }
 
 func (a *Array) Hash() string {

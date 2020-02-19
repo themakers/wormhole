@@ -2,7 +2,7 @@ package types
 
 import (
 	"crypto/sha256"
-	h "hash"
+	"github.com/getlantern/hex"
 )
 
 type Type interface {
@@ -10,16 +10,18 @@ type Type interface {
 	String() string
 }
 
-var hash h.Hash = sha256.New()
+var hasher = sha256.New()
+
+func hash(v string) string {
+	return hex.DefaultEncoding.EncodeToString(hasher.Sum([]byte(v)))
+}
 
 var Untyped Type = untyped{}
 
 type untyped struct{}
 
 func (u untyped) Hash() string {
-	return string(
-		hash.Sum([]byte(u.String())),
-	)
+	return hash(u.String())
 }
 
 func (_ untyped) String() string {

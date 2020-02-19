@@ -7,19 +7,10 @@ import (
 
 var _ Type = &Struct{}
 
-type (
-	Struct struct {
-		Fields    []StructField
-		FieldsMap map[string]StructField
-	}
-
-	StructField struct {
-		Name     string
-		Tag      string
-		Exported bool
-		Type     Type
-	}
-)
+type Struct struct {
+	Fields    []StructField
+	FieldsMap map[string]StructField
+}
 
 func (s *Struct) Hash() string {
 	return string(
@@ -40,4 +31,11 @@ func (s *Struct) String() string {
 		structTmpl,
 		strings.Join(fields, ","),
 	)
+}
+
+type StructField struct {
+	Name     string
+	Tag      string
+	Exported bool
+	Type     Type
 }

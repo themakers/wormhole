@@ -2,7 +2,6 @@ package defparser
 
 import (
 	"fmt"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser/types"
 )
@@ -55,7 +54,7 @@ func (tc *typeChecker) getResult() *Result {
 		Packages:       make([]*types.Package, len(tc.global.pkgs)),
 		STDPackages:    make([]*types.Package, len(tc.global.stdPkgs)),
 		Methods:        make([]*types.Method, len(tc.global.methods)),
-		Implicit:       make([]types.Type, len(tc.global.implicit)),
+		Types:          make([]types.Type, len(tc.global.implicit)),
 	}
 
 	{
@@ -89,7 +88,7 @@ func (tc *typeChecker) getResult() *Result {
 	{
 		var i int
 		for _, impl := range tc.global.implicit {
-			res.Implicit[i] = impl
+			res.Types[i] = impl
 			i++
 		}
 	}
@@ -375,5 +374,8 @@ func isExported(s string) bool {
 	if l := rune(s[0]); l < A && l > Z {
 		return false
 	}
+	// FIXME
+	// unicode.IsLetter()
+	// unicode.IsUpper()
 	return true
 }
