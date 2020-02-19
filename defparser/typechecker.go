@@ -3,6 +3,7 @@ package defparser
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser/types"
 )
 
@@ -19,10 +20,15 @@ type (
 		usedBuiltins   map[string]types.Builtin
 		implicit       map[string]types.Type
 		definitions    map[string]*types.Definition
-		stdDefinitions map[string]*types.Definition
 		methods        map[string]*types.Method
+		stdDefinitions map[stdDefKey]*types.Definition
 		// implementedMethods   map[string]*types.Method
 		// implementedFunctions map[string]*types.Function // For the future
+	}
+
+	stdDefKey struct {
+		name    string
+		pkgInfo types.PackageInfo
 	}
 )
 
@@ -35,7 +41,7 @@ func newTypeChecker() *typeChecker {
 			implicit:       make(map[string]types.Type),
 			definitions:    make(map[string]*types.Definition),
 			methods:        make(map[string]*types.Method),
-			stdDefinitions: make(map[string]*types.Definition),
+			stdDefinitions: make(map[stdDefKey]*types.Definition),
 		},
 		// methods: make(map[string]*types.Method),
 		// importedDefinitions: make(map[impDef]*types.Definition),
@@ -129,60 +135,69 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 		)
 	}
 
-	var (
-		pkgInfo *types.PackageInfo
-	)
-
-	for _, imp := range tc.pkg.Imports {
-		if imp.Alias == from {
-			pkgInfo = &imp.Package.Info
-		}
-	}
-	if pkgInfo == nil {
+	var pkg *types.Package
+	{
+		var pkgInfo *types.PackageInfo
 		for _, imp := range tc.pkg.Imports {
-			if imp.Package.Info.PkgName == from {
+			if imp.Alias == from {
 				pkgInfo = &imp.Package.Info
 			}
 		}
-	}
-	if pkgInfo != nil {
-		if pkgInfo.Std {
-			var (
-				def = &types.Definition{
-					Name:     name,
-					Std:      true,
-					Exported: true,
+		if pkgInfo == nil {
+			for _, imp := range tc.pkg.Imports {
+				if imp.Package.Info.PkgName == from {
+					pkgInfo = &imp.Package.Info
 				}
-				ok bool
-			)
-			def.Package, ok = tc.global.stdPkgs[*pkgInfo]
-			if !ok {
+			}
+
+			if pkgInfo == nil {
 				return nil, fmt.Errorf(""+
-					"STD package \"%s\" doesn't contain "+
+					"There's no package that fits "+
 					"imported identifier: %s.%s",
 					from,
 					name,
 				)
 			}
-		} else {
-			pkg, ok := tc.global.pkgs[*pkgInfo]
+		}
+
+		var ok bool
+		pkg, ok = tc.global.pkgs[*pkgInfo]
+		if !ok {
+			pkg, ok = tc.global.stdPkgs[*pkgInfo]
 			if !ok {
-				return nil, fmt.Errorf(
-					"",
-				)
+				panic(fmt.Errorf(""+
+					"TypeChecker: Imports and STD package buffer "+
+					"are desinchronized: %s",
+					spew.Sdump(pkgInfo),
+				))
 			}
-			def, ok := pkg.DefinitionsMap[name]
-			if !ok {
-				return nil, fmt.Errorf(
-					"",
-				)
-			}
-			return def, nil
 		}
 	}
 
+	if pkg.Info.Std {
+		stdDefKey := stdDefKey{
+			name:    name,
+			pkgInfo: pkg.Info,
+		}
+		if s, ok := tc.global.stdDefinitions[stdDefKey]; ok {
+			return s, nil
+		}
+		def := &types.Definition{
+			Std:      true,
+			Exported: true,
+			Package:  pkg,
+			Name:     name,
+		}
+		tc.global.stdDefinitions[stdDefKey] = def
+		return def, nil
+	}
+
+	if def, ok := pkg.DefinitionsMap[name]; ok {
+		return def, nil
+	}
+
 	return nil, fmt.Errorf(
-		"Cannot identify imported definition: %s.%s",
+		"Cannot definition for imported identifier: %s.%s",
 		from,
 		name,
 	)
