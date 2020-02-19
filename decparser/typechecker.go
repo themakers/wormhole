@@ -1,37 +1,42 @@
 package decparser
 
 import (
+	"fmt"
+
 	"github.com/themakers/wormhole/decparser/types"
 )
 
-type globalScope struct {
-	pkgs        map[types.PackageInfo]*types.Package
-	implicit    map[string]types.Type
-	definitions map[string]*types.Definition
-	methods     map[string]*types.Method
-	defs        map[string]*types.Definition
-	// implementedMethods   map[string]*types.Method
-	// implementedFunctions map[string]*types.Function // For the future
-}
-type typeChecker struct {
-	pkg    *types.Package
-	global *globalScope
-}
+type (
+	typeChecker struct {
+		pkg    *types.Package
+		global *global
+	}
+
+	global struct {
+		stdPkgs        map[types.PackageInfo]*types.Package
+		pkgs           map[types.PackageInfo]*types.Package
+		implicit       map[string]types.Type
+		definitions    map[string]*types.Definition
+		methods        map[string]*types.Method
+		stdDefinitions map[string]*types.Definition
+		// implementedMethods   map[string]*types.Method
+		// implementedFunctions map[string]*types.Function // For the future
+	}
+)
 
 func newTypeChecker() *typeChecker {
 	return &typeChecker{
-		global: &globalScope{
-			pkgs:        make(map[types.PackageInfo]*types.Package),
-			definitions: make(map[string]*types.Definition),
+		global: &global{
+			stdPkgs:        make(map[types.PackageInfo]*types.Package),
+			pkgs:           make(map[types.PackageInfo]*types.Package),
+			implicit:       make(map[string]types.Type),
+			definitions:    make(map[string]*types.Definition),
+			methods:        make(map[string]*types.Method),
+			stdDefinitions: make(map[string]*types.Definition),
 		},
 		// methods: make(map[string]*types.Method),
 		// importedDefinitions: make(map[impDef]*types.Definition),
 	}
-}
-
-type impDef struct {
-	From types.PackageInfo
-	Name string
 }
 
 // func (tc *typeChecker) getRes
@@ -63,6 +68,18 @@ func (tc *typeChecker) newPackage(info types.PackageInfo, imports []types.Import
 	}, pkg
 }
 
+func (tc *typeChecker) regSTDPkg(info types.PackageInfo) *types.Package {
+	pkg := &types.Package{
+		Info:           info,
+		DefinitionsMap: make(map[string]*types.Definition),
+	}
+	if s, ok := tc.global.pkgs[info]; ok {
+		return s
+	}
+	tc.global.stdPkgs[info] = pkg
+	return pkg
+}
+
 func (tc *typeChecker) def(name string, declaration types.Type) *types.Definition {
 	def := &types.Definition{
 		Name:        name,
@@ -71,21 +88,57 @@ func (tc *typeChecker) def(name string, declaration types.Type) *types.Definitio
 		Package:     tc.pkg,
 	}
 
-	d, ok := tc.global.definitions[def.Hash()]
-	if !ok {
-		tc.global.definitions[def.Hash()] = def
-		d = def
+	if d, ok := tc.global.definitions[def.Hash()]; ok {
+		return d
 	}
-
-	return d
+	tc.global.definitions[def.Hash()] = def
+	return def
 }
 
 func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
-	def := &types.Definition{
-		Name:        name,
-		Declaration: declaration,
-		Exported:    isExported(name),
+	if !isExported(name) {
+		return nil, fmt.Errorf(
+			"STD definition cannot be unexported: %s.%s",
+			from,
+			name,
+		)
 	}
+
+	var (
+		def = &types.Definition{
+			Name:     name,
+			Std:      true,
+			Exported: true,
+		}
+		pkgInfo *types.PackageInfo
+		ok      bool
+	)
+
+	for _, imp := range tc.pkg.Imports {
+		if imp.Alias == from {
+			pkgInfo = &imp.Package.Info
+		}
+	}
+	if pkgInfo == nil {
+		for _, imp := range tc.pkg.Imports {
+			if imp.Package.Info.PkgName == from {
+				pkgInfo = &imp.Package.Info
+			}
+		}
+	}
+	if pkgInfo != nil {
+		if pkgInfo.Std {
+			def.Package, ok = tc.global.stdPkgs[*pkgInfo]
+			if !ok {
+				panic("RARARARA LATER")
+			}
+		} else {
+
+		}
+	}
+
+	return
+
 	// for _, imp := range tc.pkg.Imports {
 	// 	if imp.Alias == from || imp.Package.Info.PkgName == from {
 	// 		def.Package = imp.Package
@@ -112,13 +165,11 @@ func (tc *typeChecker) meth(name string, t types.Type, f *types.Function) *types
 		Signature: f,
 	}
 
-	d, ok := tc.global.methods[m.Hash()]
-	if !ok {
-		tc.global.methods[m.Hash()] = m
-		d = m
+	if d, ok := tc.global.methods[m.Hash()]; ok {
+		return d
 	}
-
-	return d
+	tc.global.methods[m.Hash()] = m
+	return m
 }
 
 func (tc *typeChecker) mkStructField(name, tag string, t types.Type) types.StructField {
@@ -140,8 +191,7 @@ func (tc *typeChecker) implStruct(fields []types.StructField) *types.Struct {
 		Fields:    fields,
 		FieldsMap: fieldsMap,
 	}
-	tc.global.implicit[s.Hash()] = s
-	return s
+	return tc.checkImplicit(s).(*types.Struct)
 }
 
 func (tc *typeChecker) implInter(methods []*types.Method) *types.Interface {
@@ -183,12 +233,11 @@ func (tc *typeChecker) implArray(l int, t types.Type) *types.Array {
 }
 
 func (tc *typeChecker) checkImplicit(t types.Type) types.Type {
-	d, ok := tc.global.implicit[t.Hash()]
-	if !ok {
-		tc.global.implicit[t.Hash()] = d
-		d = t
+	if d, ok := tc.global.implicit[t.Hash()]; ok {
+		return d
 	}
-	return d
+	tc.global.implicit[t.Hash()] = t
+	return t
 }
 
 func isExported(s string) bool {

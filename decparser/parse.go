@@ -180,10 +180,26 @@ func Parse(pkgPath string) (*Result, error) {
 	_, err := do(pkgPath, "", make(map[string]int))
 
 	res := &Result{
-		Definitions: make([]*types.Definition, len(tc.global.definitions)),
-		Packages:    make([]*types.Package, len(tc.global.pkgs)),
-		Methods:     make([]*types.Method, len(tc.global.methods)),
-		Implicit:    make([]types.Type, len(tc.global.implicit)),
+		Definitions:    make([]*types.Definition, len(tc.global.definitions)),
+		STDDefinitions: make([]*types.Definition, len(tc.global.stdDefinitions)),
+		STDPackages:    make([]*types.Package, len(tc.global.stdPkgs)),
+		Packages:       make([]*types.Package, len(tc.global.pkgs)),
+		Methods:        make([]*types.Method, len(tc.global.methods)),
+		Implicit:       make([]types.Type, len(tc.global.implicit)),
+	}
+	{
+		var i int
+		for _, pkg := range tc.global.stdPkgs {
+			res.STDPackages[i] = pkg
+			i++
+		}
+	}
+	{
+		var i int
+		for _, def := range tc.global.stdDefinitions {
+			res.STDDefinitions[i] = def
+			i++
+		}
 	}
 	{
 		var i int
