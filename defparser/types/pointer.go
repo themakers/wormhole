@@ -9,9 +9,7 @@ type Pointer struct {
 }
 
 func (p *Pointer) Hash() string {
-	return string(
-		hash.Sum([]byte(p.String())),
-	)
+	return hash(p.String())
 }
 
 const pointerTmpl = "ptr*%s*"

@@ -20,9 +20,7 @@ type (
 )
 
 func (f *Function) Hash() string {
-	return string(
-		hash.Sum([]byte(f.String())),
-	)
+	return hash(f.String())
 }
 
 const funcTmpl = "func(%s)(%s)"

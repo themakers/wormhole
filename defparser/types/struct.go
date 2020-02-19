@@ -13,9 +13,7 @@ type Struct struct {
 }
 
 func (s *Struct) Hash() string {
-	return string(
-		hash.Sum([]byte(s.String())),
-	)
+	return hash(s.String())
 }
 
 const structTmpl = "struct{%s}"

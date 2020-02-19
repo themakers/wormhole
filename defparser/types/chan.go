@@ -9,9 +9,7 @@ type Chan struct {
 }
 
 func (c *Chan) Hash() string {
-	return string(
-		hash.Sum([]byte(c.String())),
-	)
+	return hash(c.String())
 }
 
 const chanTmpl = "chan %s"

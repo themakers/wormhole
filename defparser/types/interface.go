@@ -14,9 +14,7 @@ type (
 )
 
 func (i *Interface) Hash() string {
-	return string(
-		hash.Sum([]byte(i.String())),
-	)
+	return hash(i.String())
 }
 
 const interTmpl = "inter{%s}"

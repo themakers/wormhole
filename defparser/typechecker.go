@@ -2,6 +2,7 @@ package defparser
 
 import (
 	"fmt"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser/types"
 )
@@ -47,8 +48,17 @@ func newTypeChecker() *typeChecker {
 	}
 }
 
-func (tc *typeChecker) getResult() *Result {
+func (tc *typeChecker) getResult(rootPkg types.PackageInfo) (*Result, error) {
+	root, ok := tc.global.pkgs[rootPkg]
+	if !ok {
+		return nil, fmt.Errorf(
+			"Cannot find root package %s",
+			spew.Sdump(rootPkg),
+		)
+	}
+
 	res := &Result{
+		Root:           root,
 		Definitions:    make([]*types.Definition, len(tc.global.definitions)),
 		STDDefinitions: make([]*types.Definition, len(tc.global.stdDefinitions)),
 		Packages:       make([]*types.Package, len(tc.global.pkgs)),
@@ -100,7 +110,7 @@ func (tc *typeChecker) getResult() *Result {
 		}
 	}
 
-	return res
+	return res, nil
 }
 
 func (tc *typeChecker) newPackage(

@@ -10,9 +10,7 @@ type Map struct {
 }
 
 func (m *Map) Hash() string {
-	return string(
-		hash.Sum([]byte(m.String())),
-	)
+	return hash(m.String())
 }
 
 const mapTmpl = "map[%s]%s"

@@ -12,9 +12,7 @@ type Array struct {
 }
 
 func (a *Array) Hash() string {
-	return string(
-		hash.Sum([]byte(a.String())),
-	)
+	return hash(a.String())
 }
 
 const arrayTmpl = "[%d]%s"

@@ -11,9 +11,7 @@ type Method struct {
 }
 
 func (m *Method) Hash() string {
-	return string(
-		hash.Sum([]byte(m.String())),
-	)
+	return hash(m.String())
 }
 
 const methodTmpl = "%s."

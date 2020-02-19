@@ -15,9 +15,7 @@ type Definition struct {
 }
 
 func (d *Definition) Hash() string {
-	return string(
-		hash.Sum([]byte(d.String())),
-	)
+	return hash(d.String())
 }
 
 const (

@@ -9,9 +9,7 @@ type Slice struct {
 }
 
 func (s *Slice) Hash() string {
-	return string(
-		hash.Sum([]byte(s.String())),
-	)
+	return hash(s.String())
 }
 
 const sliceTmpl = "[]%s"

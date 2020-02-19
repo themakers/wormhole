@@ -6,10 +6,6 @@ type T1 struct {
 		d int
 		b int
 	}
-	i interface {
-		A(a int) int
-		B(b byte) (error, int)
-	}
 }
 
 //go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"

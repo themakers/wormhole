@@ -29,9 +29,7 @@ type (
 )
 
 func (p *Package) Hash() string {
-	return string(
-		hash.Sum([]byte(p.String())),
-	)
+	return hash(p.String())
 }
 
 const packageTmpl = "<%s>"

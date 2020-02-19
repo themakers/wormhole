@@ -21,9 +21,7 @@ const (
 type Builtin uint
 
 func (b Builtin) Hash() string {
-	return string(
-		hash.Sum([]byte(b.String())),
-	)
+	return hash(b.String())
 }
 
 func (b Builtin) String() string {

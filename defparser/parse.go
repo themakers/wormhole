@@ -170,13 +170,14 @@ func Parse(pkgPath string) (*Result, error) {
 		return pkgTC.pkg, err
 	}
 
-	if _, err := do(
+	pkg, err := do(
 		pkgPath,
 		strings.TrimPrefix(pkgPath, GOSRC)[1:],
 		make(map[string]int),
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
 
-	return tc.getResult(), nil
+	return tc.getResult(pkg.Info)
 }
