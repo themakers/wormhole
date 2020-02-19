@@ -109,6 +109,17 @@ func (tc *typeChecker) getResult(rootPkg types.PackageInfo) (*Result, error) {
 			i++
 		}
 	}
+	{
+		var (
+			i        int
+			builtins = make([]types.Type, len(tc.global.usedBuiltins))
+		)
+		for _, b := range tc.global.usedBuiltins {
+			builtins[i] = b
+			i++
+		}
+		res.Types = append(builtins, res.Types...)
+	}
 
 	return res, nil
 }
