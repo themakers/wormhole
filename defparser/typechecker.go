@@ -19,8 +19,8 @@ type (
 		usedBuiltins   map[string]types.Builtin
 		implicit       map[string]types.Type
 		definitions    map[string]*types.Definition
-		methods        map[string]*types.Method
 		stdDefinitions map[string]*types.Definition
+		methods        map[string]*types.Method
 		// implementedMethods   map[string]*types.Method
 		// implementedFunctions map[string]*types.Function // For the future
 	}
@@ -93,9 +93,9 @@ func (tc *typeChecker) regBuiltin(b string) (types.Builtin, error) {
 	return t, nil
 }
 
-func (tc *typeChecker) def(name string, declaration types.Type) (*types.Definition, error) {
+func (tc *typeChecker) def(name string, declaration types.Type) error {
 	if _, ok := tc.usedNames[name]; ok {
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			"Duplicated identifier: %s",
 			name,
 		)
@@ -109,15 +109,15 @@ func (tc *typeChecker) def(name string, declaration types.Type) (*types.Definiti
 		Package:     tc.pkg,
 	}
 
-	if d, ok := tc.global.definitions[def.Hash()]; ok {
-		return d, nil
+	if _, ok := tc.global.definitions[def.Hash()]; ok {
+		return nil
 	}
 	tc.global.definitions[def.Hash()] = def
 
 	tc.pkg.Definitions = append(tc.pkg.Definitions, def)
 	tc.pkg.DefinitionsMap[def.Name] = def
 
-	return def, nil
+	return nil
 }
 
 func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
@@ -157,16 +157,25 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 			)
 			def.Package, ok = tc.global.stdPkgs[*pkgInfo]
 			if !ok {
-				panic("RARARARA LATER")
+				return nil, fmt.Errorf(""+
+					"STD package \"%s\" doesn't contain "+
+					"imported identifier: %s.%s",
+					from,
+					name,
+				)
 			}
 		} else {
 			pkg, ok := tc.global.pkgs[*pkgInfo]
 			if !ok {
-				panic("OLOLOLO LATER")
+				return nil, fmt.Errorf(
+					"",
+				)
 			}
 			def, ok := pkg.DefinitionsMap[name]
 			if !ok {
-				panic("TROLOLOLO LATER")
+				return nil, fmt.Errorf(
+					"",
+				)
 			}
 			return def, nil
 		}
