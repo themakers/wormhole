@@ -1,9 +1,11 @@
 package messenger
 
+import "github.com/themakers/wormhole/tests/messenger/user"
+
 type T1 struct {
 	d int
 	s struct {
-		d int
+		u user.User
 		b int
 	}
 }
