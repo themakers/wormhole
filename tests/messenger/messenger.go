@@ -1,7 +1,5 @@
 package messenger
 
-type J uint
-
 type T1 struct {
 	d int
 	s struct {
@@ -10,7 +8,7 @@ type T1 struct {
 	}
 	i interface {
 		A(a int) int
-		B(b byte) (error, T1)
+		B(b byte) (error, int)
 	}
 }
 
