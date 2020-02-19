@@ -1,4 +1,4 @@
-package decparser
+package defparser
 
 import (
 	"os"

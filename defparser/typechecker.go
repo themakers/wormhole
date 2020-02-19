@@ -1,15 +1,16 @@
-package decparser
+package defparser
 
 import (
 	"fmt"
 
-	"github.com/themakers/wormhole/decparser/types"
+	"github.com/themakers/wormhole/defparser/types"
 )
 
 type (
 	typeChecker struct {
-		pkg    *types.Package
-		global *global
+		pkg       *types.Package
+		usedNames map[string]struct{}
+		global    *global
 	}
 
 	global struct {
@@ -61,8 +62,9 @@ func (tc *typeChecker) newPackage(info types.PackageInfo, imports []types.Import
 	tc.global.pkgs[info] = pkg
 
 	return &typeChecker{
-		pkg:    pkg,
-		global: tc.global,
+		usedNames: make(map[string]struct{}),
+		pkg:       pkg,
+		global:    tc.global,
 		// methods:     make(map[string]*types.Method),
 		// importedDefinitions: make(map[impDef]*types.Definition),
 	}, pkg
@@ -80,7 +82,15 @@ func (tc *typeChecker) regSTDPkg(info types.PackageInfo) *types.Package {
 	return pkg
 }
 
-func (tc *typeChecker) def(name string, declaration types.Type) *types.Definition {
+func (tc *typeChecker) def(name string, declaration types.Type) (*types.Definition, error) {
+	if _, ok := tc.usedNames[name]; ok {
+		return nil, fmt.Errorf(
+			"Duplicated identifier: %s",
+			name,
+		)
+	}
+	tc.usedNames[name] = struct{}{}
+
 	def := &types.Definition{
 		Name:        name,
 		Declaration: declaration,
@@ -89,10 +99,14 @@ func (tc *typeChecker) def(name string, declaration types.Type) *types.Definitio
 	}
 
 	if d, ok := tc.global.definitions[def.Hash()]; ok {
-		return d
+		return d, nil
 	}
 	tc.global.definitions[def.Hash()] = def
-	return def
+
+	tc.pkg.Definitions = append(tc.pkg.Definitions, def)
+	tc.pkg.DefinitionsMap[def.Name] = def
+
+	return def, nil
 }
 
 func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
@@ -105,13 +119,7 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 	}
 
 	var (
-		def = &types.Definition{
-			Name:     name,
-			Std:      true,
-			Exported: true,
-		}
 		pkgInfo *types.PackageInfo
-		ok      bool
 	)
 
 	for _, imp := range tc.pkg.Imports {
@@ -128,34 +136,36 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 	}
 	if pkgInfo != nil {
 		if pkgInfo.Std {
+			var (
+				def = &types.Definition{
+					Name:     name,
+					Std:      true,
+					Exported: true,
+				}
+				ok bool
+			)
 			def.Package, ok = tc.global.stdPkgs[*pkgInfo]
 			if !ok {
 				panic("RARARARA LATER")
 			}
 		} else {
-
+			pkg, ok := tc.global.pkgs[*pkgInfo]
+			if !ok {
+				panic("OLOLOLO LATER")
+			}
+			def, ok := pkg.DefinitionsMap[name]
+			if !ok {
+				panic("TROLOLOLO LATER")
+			}
+			return def, nil
 		}
 	}
 
-	return
-
-	// for _, imp := range tc.pkg.Imports {
-	// 	if imp.Alias == from || imp.Package.Info.PkgName == from {
-	// 		def.Package = imp.Package
-	// 	}
-	// }
-
-	if def.Package == nil {
-		panic("TROLOLO OLOLO")
-	}
-
-	d, ok := tc.global.definitions[def.Hash()]
-	if !ok {
-		tc.global.definitions[def.Hash()] = def
-		d = def
-	}
-
-	return d
+	return nil, fmt.Errorf(
+		"Cannot identify imported definition: %s.%s",
+		from,
+		name,
+	)
 }
 
 func (tc *typeChecker) meth(name string, t types.Type, f *types.Function) *types.Method {

@@ -1,4 +1,4 @@
-package decparser
+package defparser
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/themakers/wormhole/decparser/types"
+	"github.com/themakers/wormhole/defparser/types"
 )
 
 func parseDefs(tc *typeChecker, pkg *ast.Package) error {
@@ -172,9 +172,13 @@ func parseDefs(tc *typeChecker, pkg *ast.Package) error {
 			// }, nil
 
 		case *ast.SelectorExpr:
+			return tc.defRef(
+				n.Sel.Name,
+				n.X.(*ast.Ident).Name,
+			)
 			return Type{
-				From: n.X.(*ast.Ident).Name,
-				Name: n.Sel.Name,
+				From: 
+				Name: 
 			}, nil
 
 		case *ast.StarExpr:

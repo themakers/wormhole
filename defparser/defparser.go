@@ -1,6 +1,6 @@
-package decparser
+package defparser
 
-import "github.com/themakers/wormhole/decparser/types"
+import "github.com/themakers/wormhole/defparser/types"
 
 type Result struct {
 	Definitions    []*types.Definition

@@ -1,4 +1,4 @@
-package decparser
+package defparser
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/themakers/wormhole/decparser/types"
+	"github.com/themakers/wormhole/defparser/types"
 )
 
 func Parse(pkgPath string) (*Result, error) {
