@@ -79,7 +79,7 @@ func parseDefs(tc *typeChecker, pkg *ast.Package) error {
 		if err != nil {
 			return nil, err
 		}
-		return tc.def(name, t), nil
+		return tc.def(name, t)
 	}
 
 	parseTypeDeclaration = func(node ast.Node) (types.Type, error) {
@@ -159,36 +159,26 @@ func parseDefs(tc *typeChecker, pkg *ast.Package) error {
 			return nil, nil
 
 		case *ast.Ident:
-			t, err := types.String2Builtin(n.Name)
-			if err == nil {
-				return t, nil
+			t, err := tc.regBuiltin(n.Name)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"Unknown ast.Ident: %s",
+					spew.Sdump(n),
+				)
 			}
-			return nil, fmt.Errorf(
-				"Unknown ast.Ident: %s",
-				spew.Sdump(n),
-			)
-			// return Type{
-			// 	Name: n.Name,
-			// }, nil
-
+			return t, nil
 		case *ast.SelectorExpr:
 			return tc.defRef(
 				n.Sel.Name,
 				n.X.(*ast.Ident).Name,
 			)
-			return Type{
-				From: 
-				Name: 
-			}, nil
 
 		case *ast.StarExpr:
 			t, err := parseTypeDeclaration(n.X)
 			if err != nil {
 				return nil, err
 			}
-			return Pointer{
-				Type: t,
-			}, nil
+			return tc.implPtr(t), nil
 
 		case *ast.ChanType:
 			t, err := parseTypeDeclaration(
@@ -197,9 +187,7 @@ func parseDefs(tc *typeChecker, pkg *ast.Package) error {
 			if err != nil {
 				return nil, err
 			}
-			return Chan{
-				Type: t,
-			}, nil
+			return tc.implChan(t), nil
 
 		default:
 			return nil, fmt.Errorf(

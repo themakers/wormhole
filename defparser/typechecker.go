@@ -16,6 +16,7 @@ type (
 	global struct {
 		stdPkgs        map[types.PackageInfo]*types.Package
 		pkgs           map[types.PackageInfo]*types.Package
+		usedBuiltins   map[string]types.Builtin
 		implicit       map[string]types.Type
 		definitions    map[string]*types.Definition
 		methods        map[string]*types.Method
@@ -30,6 +31,7 @@ func newTypeChecker() *typeChecker {
 		global: &global{
 			stdPkgs:        make(map[types.PackageInfo]*types.Package),
 			pkgs:           make(map[types.PackageInfo]*types.Package),
+			usedBuiltins:   make(map[string]types.Builtin),
 			implicit:       make(map[string]types.Type),
 			definitions:    make(map[string]*types.Definition),
 			methods:        make(map[string]*types.Method),
@@ -80,6 +82,15 @@ func (tc *typeChecker) regSTDPkg(info types.PackageInfo) *types.Package {
 	}
 	tc.global.stdPkgs[info] = pkg
 	return pkg
+}
+
+func (tc *typeChecker) regBuiltin(b string) (types.Builtin, error) {
+	t, err := types.String2Builtin(b)
+	if err != nil {
+		return types.Byte, err
+	}
+	tc.global.usedBuiltins[t.Hash()] = t
+	return t, nil
 }
 
 func (tc *typeChecker) def(name string, declaration types.Type) (*types.Definition, error) {
@@ -189,6 +200,20 @@ func (tc *typeChecker) mkStructField(name, tag string, t types.Type) types.Struc
 		Exported: isExported(name),
 		Type:     t,
 	}
+}
+
+func (tc *typeChecker) implChan(t types.Type) *types.Chan {
+	c := &types.Chan{
+		Type: t,
+	}
+	return tc.checkImplicit(c).(*types.Chan)
+}
+
+func (tc *typeChecker) implPtr(t types.Type) *types.Pointer {
+	p := &types.Pointer{
+		Type: t,
+	}
+	return tc.checkImplicit(p).(*types.Pointer)
 }
 
 func (tc *typeChecker) implStruct(fields []types.StructField) *types.Struct {
