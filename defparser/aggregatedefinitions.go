@@ -182,6 +182,7 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 				}
 
 				fields[i] = types.StructField{
+					Name: field.Names[0].Name,
 					Tag:  tag,
 					Type: t,
 				}
@@ -213,12 +214,19 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 			return nil, nil
 
 		case *ast.Ident:
-			t, err := tc.regBuiltin(n.Name)
+			var (
+				t   types.Type
+				err error
+			)
+			t, err = tc.regBuiltin(n.Name)
 			if err != nil {
-				return nil, fmt.Errorf(
-					"Unknown ast.Ident: %s",
-					spew.Sdump(n),
-				)
+				t, err = tc.defRef(n.Name, "")
+				if err != nil {
+					return nil, fmt.Errorf(
+						"Unknown ast.Ident: %s",
+						spew.Sdump(n),
+					)
+				}
 			}
 			return t, nil
 

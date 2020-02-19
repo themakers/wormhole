@@ -1,36 +1,43 @@
 package messenger
 
-import (
-	"context"
+type J uint
 
-	"github.com/themakers/wormhole/tests/messenger/message"
-	userPackage "github.com/themakers/wormhole/tests/messenger/user"
-)
+type T1 struct {
+	d int
+	s struct {
+		d int
+		b int
+	}
+	i interface {
+		A(a int) int
+		B(b byte) (error, T1)
+	}
+}
 
 //go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
 
 // var _ interface{} = wormparse.Parse
 
-type Messenger interface {
-	SignUp(context.Context, MessengerSignUpReq) error
-	ListUsers(context.Context) ([]userPackage.User, error)
-	Text(context.Context, userPackage.User, message.Data) error
-}
+// type Messenger interface {
+// 	SignUp(context.Context, MessengerSignUpReq) error
+// 	ListUsers(context.Context) ([]userPackage.User, error)
+// 	Text(context.Context, userPackage.User, message.Data) error
+// }
 
-type MessengerSignUpReq struct {
-	FirstName             string
-	LastName              string
-	MessageStreamCallback func(context.Context)
-	c                     chan MessengerSignUpReq
-}
+// type MessengerSignUpReq struct {
+// 	FirstName             string
+// 	LastName              string
+// 	MessageStreamCallback func(context.Context)
+// 	c                     chan MessengerSignUpReq
+// }
 
-type MessengerSignUpResp struct {
-}
+// type MessengerSignUpResp struct {
+// }
 
-func TestFunc(a int, b Messenger) interface {
-	A() map[string]string
-	B()
-}
+// func TestFunc(a int, b Messenger) interface {
+// 	A() map[string]string
+// 	B()
+// }
 
 // type Greeter interface {
 // 	Hello(ctx context.Context, q GreeterHelloReq) (GreeterHelloResp, error)

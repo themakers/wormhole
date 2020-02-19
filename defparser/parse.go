@@ -170,7 +170,11 @@ func Parse(pkgPath string) (*Result, error) {
 		return pkgTC.pkg, err
 	}
 
-	if _, err := do(pkgPath, "", make(map[string]int)); err != nil {
+	if _, err := do(
+		pkgPath,
+		strings.TrimPrefix(pkgPath, GOSRC)[1:],
+		make(map[string]int),
+	); err != nil {
 		return nil, err
 	}
 

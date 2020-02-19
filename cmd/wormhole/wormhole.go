@@ -24,9 +24,14 @@ func PWD() string {
 func parse(wd string) *wormparse.Package {
 	files := listSourceFiles(wd)
 	log.Println(files)
-	// p, err := parsex.Parse(wd)
-	// pkg, err := wormparse.Parse(wd)
-	// res, err := decparse.Parse(wd)
+
+	/*
+		History, lol
+		p, err := parsex.Parse(wd)
+		pkg, err := wormparse.Parse(wd)
+		res, err := decparse.Parse(wd)
+	*/
+
 	res, err := defparser.Parse(wd)
 	if err != nil {
 		switch v := err.(type) {
@@ -36,8 +41,9 @@ func parse(wd string) *wormparse.Package {
 		default:
 			panic(err)
 		}
-
 	}
+
+	spew.Dump(res.Packages[0].Info.PkgPath)
 
 	fmt.Println("\n\n\n\n###### DONE ########\n\n\n\n")
 
