@@ -221,6 +221,7 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 				)
 			}
 			return t, nil
+
 		case *ast.SelectorExpr:
 			return tc.defRef(
 				n.Sel.Name,

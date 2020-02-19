@@ -48,46 +48,100 @@ func newTypeChecker() *typeChecker {
 	}
 }
 
-// func (tc *typeChecker) getRes
-
-func (tc *typeChecker) newPackage(info types.PackageInfo, imports []types.Import) (*typeChecker, *types.Package) {
-	importsMap := make(map[types.PackageInfo]types.Import)
-	for _, imp := range imports {
-		importsMap[imp.Package.Info] = imp
+func (tc *typeChecker) getResult() *Result {
+	res := &Result{
+		Definitions:    make([]*types.Definition, len(tc.global.definitions)),
+		STDDefinitions: make([]*types.Definition, len(tc.global.stdDefinitions)),
+		Packages:       make([]*types.Package, len(tc.global.pkgs)),
+		STDPackages:    make([]*types.Package, len(tc.global.stdPkgs)),
+		Methods:        make([]*types.Method, len(tc.global.methods)),
+		Implicit:       make([]types.Type, len(tc.global.implicit)),
 	}
 
-	pkg := &types.Package{
-		Info:           info,
-		Imports:        imports,
-		ImportsMap:     importsMap,
-		DefinitionsMap: make(map[string]*types.Definition),
-		MethodsMap:     make(map[string]*types.Method),
+	{
+		var i int
+		for _, pkg := range tc.global.stdPkgs {
+			res.STDPackages[i] = pkg
+			i++
+		}
+	}
+	{
+		var i int
+		for _, def := range tc.global.stdDefinitions {
+			res.STDDefinitions[i] = def
+			i++
+		}
+	}
+	{
+		var i int
+		for _, pkg := range tc.global.pkgs {
+			res.Packages[i] = pkg
+			i++
+		}
+	}
+	{
+		var i int
+		for _, def := range tc.global.definitions {
+			res.Definitions[i] = def
+			i++
+		}
+	}
+	{
+		var i int
+		for _, impl := range tc.global.implicit {
+			res.Implicit[i] = impl
+			i++
+		}
+	}
+	{
+		var i int
+		for _, meth := range tc.global.methods {
+			res.Methods[i] = meth
+			i++
+		}
 	}
 
-	if _, ok := tc.global.pkgs[info]; ok {
-		panic("WTF?")
+	return res
+}
+
+func (tc *typeChecker) newPackage(
+	info types.PackageInfo,
+	imports []types.Import,
+) *typeChecker {
+	pkg, ok := tc.global.pkgs[info]
+	if !ok {
+		importsMap := make(map[types.PackageInfo]types.Import)
+		for _, imp := range imports {
+			if imp.Package.Info.Std {
+				if s, ok := tc.global.stdPkgs[imp.Package.Info]; ok {
+					imp.Package = s
+				} else {
+					tc.global.stdPkgs[imp.Package.Info] = imp.Package
+				}
+			}
+			importsMap[imp.Package.Info] = imp
+		}
+
+		pkg = &types.Package{
+			Info:           info,
+			Imports:        imports,
+			ImportsMap:     importsMap,
+			DefinitionsMap: make(map[string]*types.Definition),
+			MethodsMap:     make(map[string]*types.Method),
+		}
+		tc.global.pkgs[info] = pkg
+	} else {
+		fmt.Printf(
+			"WARNING: something went strange: %s",
+			spew.Sdump(info),
+		)
 	}
-	tc.global.pkgs[info] = pkg
 
 	return &typeChecker{
 		usedNames: make(map[string]struct{}),
 		pkg:       pkg,
 		global:    tc.global,
-		// methods:     make(map[string]*types.Method),
-		// importedDefinitions: make(map[impDef]*types.Definition),
-	}, pkg
-}
-
-func (tc *typeChecker) regSTDPkg(info types.PackageInfo) *types.Package {
-	pkg := &types.Package{
-		Info:           info,
-		DefinitionsMap: make(map[string]*types.Definition),
 	}
-	if s, ok := tc.global.pkgs[info]; ok {
-		return s
-	}
-	tc.global.stdPkgs[info] = pkg
-	return pkg
 }
 
 func (tc *typeChecker) regBuiltin(b string) (types.Builtin, error) {
@@ -203,7 +257,12 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 	)
 }
 
-func (tc *typeChecker) meth(name string, t types.Type, f *types.Function) *types.Method {
+func (tc *typeChecker) meth(
+	name string,
+	t types.Type,
+	f *types.Function,
+) *types.Method {
+
 	m := &types.Method{
 		Name:      name,
 		Type:      t,
@@ -217,7 +276,12 @@ func (tc *typeChecker) meth(name string, t types.Type, f *types.Function) *types
 	return m
 }
 
-func (tc *typeChecker) mkStructField(name, tag string, t types.Type) types.StructField {
+func (tc *typeChecker) mkStructField(
+	name,
+	tag string,
+	t types.Type,
+) types.StructField {
+
 	return types.StructField{
 		Name:     name,
 		Tag:      tag,
@@ -260,7 +324,11 @@ func (tc *typeChecker) implInter(methods []*types.Method) *types.Interface {
 	return tc.checkImplicit(i).(*types.Interface)
 }
 
-func (tc *typeChecker) implFunc(args []types.NameTypePair, results []types.NameTypePair) *types.Function {
+func (tc *typeChecker) implFunc(
+	args []types.NameTypePair,
+	results []types.NameTypePair,
+) *types.Function {
+
 	f := &types.Function{
 		Args:    args,
 		Results: results,

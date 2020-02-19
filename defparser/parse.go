@@ -14,8 +14,8 @@ import (
 
 func Parse(pkgPath string) (*Result, error) {
 	var (
-		index int
 		do    func(pkgFullPath, pkgPath string, prev map[string]int) (*types.Package, error)
+		index int
 		tc    = newTypeChecker()
 	)
 
@@ -160,75 +160,19 @@ func Parse(pkgPath string) (*Result, error) {
 				i++
 			}
 
-			pkgTC, pkg = tc.newPackage(info, imports)
+			pkgTC = tc.newPackage(info, imports)
 		}
 
-		fmt.Println(pkgTC)
-
-		// res.Types, res.Methods, res.Functions, err = parseDefs(
-		// 	res.Info,
-		// 	pkgs[pkgName],
-		// )
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		// parsedPackages[res.Info] = &res
-		return pkg, err
+		err = aggregateDefinitions(
+			pkgTC,
+			pkgs[pkgName],
+		)
+		return pkgTC.pkg, err
 	}
 
-	_, err := do(pkgPath, "", make(map[string]int))
-
-	res := &Result{
-		Definitions:    make([]*types.Definition, len(tc.global.definitions)),
-		STDDefinitions: make([]*types.Definition, len(tc.global.stdDefinitions)),
-		STDPackages:    make([]*types.Package, len(tc.global.stdPkgs)),
-		Packages:       make([]*types.Package, len(tc.global.pkgs)),
-		Methods:        make([]*types.Method, len(tc.global.methods)),
-		Implicit:       make([]types.Type, len(tc.global.implicit)),
-	}
-	{
-		var i int
-		for _, pkg := range tc.global.stdPkgs {
-			res.STDPackages[i] = pkg
-			i++
-		}
-	}
-	{
-		var i int
-		for _, def := range tc.global.stdDefinitions {
-			res.STDDefinitions[i] = def
-			i++
-		}
-	}
-	{
-		var i int
-		for _, pkg := range tc.global.pkgs {
-			res.Packages[i] = pkg
-			i++
-		}
-	}
-	{
-		var i int
-		for _, def := range tc.global.definitions {
-			res.Definitions[i] = def
-			i++
-		}
-	}
-	{
-		var i int
-		for _, impl := range tc.global.implicit {
-			res.Implicit[i] = impl
-			i++
-		}
-	}
-	{
-		var i int
-		for _, meth := range tc.global.methods {
-			res.Methods[i] = meth
-			i++
-		}
+	if _, err := do(pkgPath, "", make(map[string]int)); err != nil {
+		return nil, err
 	}
 
-	return &Result{}, err
+	return tc.getResult(), nil
 }
