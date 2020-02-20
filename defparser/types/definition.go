@@ -11,7 +11,6 @@ type Definition struct {
 	Methods     []*Method
 	Exported    bool
 	Std         bool
-	Builtin     bool
 }
 
 func (d *Definition) Hash() string {

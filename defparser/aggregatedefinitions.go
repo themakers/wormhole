@@ -60,7 +60,8 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 		if err != nil {
 			return err
 		}
-		return tc.def(d.Name.Name, t)
+		_, err = tc.def(d.Name.Name, t)
+		return err
 	}
 
 	funcDef = func(dec *ast.FuncDecl) error {
@@ -68,7 +69,8 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 		if err != nil {
 			return err
 		}
-		return tc.def(dec.Name.Name, t)
+		_, err = tc.def(dec.Name.Name, t)
+		return err
 	}
 
 	methodDef = func(dec *ast.FuncDecl) error {
@@ -81,10 +83,8 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 			return err
 		}
 
-		return tc.def(
-			dec.Name.Name,
-			tc.meth(dec.Name.Name, t, f),
-		)
+		_, err = tc.def(dec.Name.Name, tc.meth(dec.Name.Name, t, f))
+		return err
 	}
 
 	isIgnorable = func(node ast.Node) bool {
@@ -276,6 +276,14 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 				return err
 			}
 		}
+	}
+
+	for name := range tc.undefinedIdentifiers {
+		return fmt.Errorf(
+			"Undefined identifier \"%s\" in package %s",
+			name,
+			tc.pkg.Info.PkgPath,
+		)
 	}
 
 	return nil

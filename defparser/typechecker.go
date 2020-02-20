@@ -2,6 +2,7 @@ package defparser
 
 import (
 	"fmt"
+	"unicode"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser/types"
@@ -9,9 +10,10 @@ import (
 
 type (
 	typeChecker struct {
-		pkg       *types.Package
-		usedNames map[string]struct{}
-		global    *global
+		pkg                  *types.Package
+		usedNames            map[string]struct{}
+		global               *global
+		undefinedIdentifiers map[string]*types.Definition
 	}
 
 	global struct {
@@ -158,9 +160,10 @@ func (tc *typeChecker) newPackage(
 	}
 
 	return &typeChecker{
-		usedNames: make(map[string]struct{}),
-		pkg:       pkg,
-		global:    tc.global,
+		undefinedIdentifiers: make(map[string]*types.Definition),
+		usedNames:            make(map[string]struct{}),
+		pkg:                  pkg,
+		global:               tc.global,
 	}
 }
 
@@ -173,9 +176,18 @@ func (tc *typeChecker) regBuiltin(b string) (types.Builtin, error) {
 	return t, nil
 }
 
-func (tc *typeChecker) def(name string, declaration types.Type) error {
+func (tc *typeChecker) def(
+	name string,
+	declaration types.Type,
+) (*types.Definition, error) {
+	if def, ok := tc.undefinedIdentifiers[name]; ok {
+		def.Declaration = declaration
+		delete(tc.undefinedIdentifiers, name)
+		return def, nil
+	}
+
 	if _, ok := tc.usedNames[name]; ok {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"Duplicated identifier: %s",
 			name,
 		)
@@ -189,29 +201,20 @@ func (tc *typeChecker) def(name string, declaration types.Type) error {
 		Package:     tc.pkg,
 	}
 
-	if _, ok := tc.global.definitions[def.Hash()]; ok {
-		return nil
+	if def, ok := tc.global.definitions[def.Hash()]; ok {
+		return def, nil
 	}
 	tc.global.definitions[def.Hash()] = def
 
 	tc.pkg.Definitions = append(tc.pkg.Definitions, def)
 	tc.pkg.DefinitionsMap[def.Name] = def
 
-	// fmt.Printf(
-	// 	"===\n%s\n===",
-	// 	strings.Join([]string{
-	// 		name,
-	// 		spew.Sdump(declaration),
-	// 		spew.Sdump(tc.pkg),
-	// 		spew.Sdump(tc.pkg.Definitions),
-	// 		spew.Sdump(tc.pkg.DefinitionsMap),
-	// 	}, "\n"),
-	// )
-
-	return nil
+	return def, nil
 }
 
 func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
+	fmt.Println("defRef")
+
 	if !isExported(name) {
 		return nil, fmt.Errorf(
 			"STD definition cannot be unexported: %s.%s",
@@ -284,32 +287,18 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 
 	if def, ok := pkg.DefinitionsMap[name]; ok {
 		return def, nil
+	} else if pkg == tc.pkg {
+		if def, ok := tc.undefinedIdentifiers[name]; ok {
+			return def, nil
+		}
+		var err error
+		def, err = tc.def(name, types.Untyped)
+		if err != nil {
+			return nil, err
+		}
+		tc.undefinedIdentifiers[name] = def
+		return def, nil
 	}
-
-	// fmt.Printf(
-	// 	"===\n%s\n===",
-	// 	strings.Join([]string{
-	// 		name,
-	// 		// spew.Sdump(declaration),
-	// 		spew.Sdump(pkg),
-	// 		spew.Sdump(tc.pkg),
-	// 		spew.Sdump(tc.pkg.Definitions),
-	// 		spew.Sdump(tc.pkg.DefinitionsMap),
-	// 	}, "\n"),
-	// )
-
-	// fmt.Printf(
-	// 	"===\n%s\n===",
-	// 	strings.Join([]string{
-	// 		name,
-	// 		// spew.Sdump(declaration),
-	// 		spew.Sdump(tc.pkg),
-	// 		spew.Sdump(tc.pkg.Definitions),
-	// 	}, "\n"),
-	// )
-
-	// spew.Dump(pkg.DefinitionsMap)
-	// spew.Dump(tc.global.definitions)
 
 	return nil, fmt.Errorf(
 		"Cannot find definition for imported identifier: %s.%s",
@@ -429,15 +418,6 @@ func (tc *typeChecker) checkImplicit(t types.Type) types.Type {
 }
 
 func isExported(s string) bool {
-	const (
-		A = rune(65)
-		Z = rune(90)
-	)
-	if l := rune(s[0]); l < A && l > Z {
-		return false
-	}
-	// FIXME
-	// unicode.IsLetter()
-	// unicode.IsUpper()
-	return true
+	return unicode.IsLetter(rune(s[0])) &&
+		unicode.IsUpper(rune(s[0]))
 }

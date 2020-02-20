@@ -6,12 +6,36 @@ import (
 )
 
 // type T0 interface {
-// 	A()
+// 	A() T1
 // 	B() struct {
 // 		a int
 // 		b uint
 // 	}
 // }
+
+// type T1 struct {
+// 	A string
+// 	B string
+// }
+
+type I interface {
+	A(T0) T1
+	B(T1) T0
+	С(*chan struct{ T0 }) [5]struct {
+		user.User
+		OLOLO user.TROLOLO
+	}
+	F() func() (error, struct {
+		i T0
+	})
+}
+
+func F(m message.Message) *struct {
+	a string
+	I
+} {
+	return nil
+}
 
 type T0 struct {
 	a int
@@ -32,22 +56,6 @@ type T1 struct {
 		a int
 		b uint
 	}
-}
-
-type I interface {
-	A(T0) T1
-	B(T1) T0
-	С(*chan struct{ T0 }) [5]struct {
-		user.User
-		OLOLO user.TROLOLO
-	}
-}
-
-func F(m message.Message) *struct {
-	a string
-	I
-} {
-	return nil
 }
 
 //go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
