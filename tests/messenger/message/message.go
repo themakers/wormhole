@@ -6,6 +6,11 @@ import (
 	"github.com/themakers/wormhole/tests/messenger/user"
 )
 
+type Data struct {
+	Title string
+	Text  string
+}
+
 type Message struct {
 	ID   string
 	Data Data
@@ -16,9 +21,4 @@ type Message struct {
 	}
 
 	From *user.User
-}
-
-type Data struct {
-	Title string
-	Text  string
 }

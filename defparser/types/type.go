@@ -26,5 +26,5 @@ func (u untyped) Hash() string {
 }
 
 func (_ untyped) String() string {
-	return "???"
+	return ""
 }

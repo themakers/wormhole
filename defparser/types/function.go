@@ -38,6 +38,7 @@ func (f *Function) String() string {
 	}
 
 	return fmt.Sprintf(
+		funcTmpl,
 		strings.Join(args, ","),
 		strings.Join(results, ","),
 	)

@@ -181,8 +181,16 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 					tag = field.Tag.Value
 				}
 
+				var name string
+				if len(field.Names) == 1 {
+					name = field.Names[0].Name
+				} else {
+					def := t.(*types.Definition)
+					name = def.Name
+				}
+
 				fields[i] = types.StructField{
-					Name: field.Names[0].Name,
+					Name: name,
 					Tag:  tag,
 					Type: t,
 				}
@@ -223,8 +231,9 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 				t, err = tc.defRef(n.Name, "")
 				if err != nil {
 					return nil, fmt.Errorf(
-						"Unknown ast.Ident: %s",
+						"Failed to parse %s :: %s",
 						spew.Sdump(n),
+						err,
 					)
 				}
 			}
@@ -245,7 +254,7 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 
 		case *ast.ChanType:
 			t, err := typeDeclaration(
-				n.Value.(*ast.Ident),
+				n.Value,
 			)
 			if err != nil {
 				return nil, err

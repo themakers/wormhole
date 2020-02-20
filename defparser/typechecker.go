@@ -197,6 +197,17 @@ func (tc *typeChecker) def(name string, declaration types.Type) error {
 	tc.pkg.Definitions = append(tc.pkg.Definitions, def)
 	tc.pkg.DefinitionsMap[def.Name] = def
 
+	// fmt.Printf(
+	// 	"===\n%s\n===",
+	// 	strings.Join([]string{
+	// 		name,
+	// 		spew.Sdump(declaration),
+	// 		spew.Sdump(tc.pkg),
+	// 		spew.Sdump(tc.pkg.Definitions),
+	// 		spew.Sdump(tc.pkg.DefinitionsMap),
+	// 	}, "\n"),
+	// )
+
 	return nil
 }
 
@@ -210,68 +221,98 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 	}
 
 	var pkg *types.Package
-	{
-		var pkgInfo *types.PackageInfo
-		for _, imp := range tc.pkg.Imports {
-			if imp.Alias == from {
-				pkgInfo = &imp.Package.Info
-			}
-		}
-		if pkgInfo == nil {
+	if from != "" {
+		{
+			var pkgInfo *types.PackageInfo
 			for _, imp := range tc.pkg.Imports {
-				if imp.Package.Info.PkgName == from {
+				if imp.Alias == from {
 					pkgInfo = &imp.Package.Info
 				}
 			}
-
 			if pkgInfo == nil {
-				return nil, fmt.Errorf(""+
-					"There's no package that fits "+
-					"imported identifier: %s.%s",
-					from,
-					name,
-				)
-			}
-		}
+				for _, imp := range tc.pkg.Imports {
+					if imp.Package.Info.PkgName == from {
+						pkgInfo = &imp.Package.Info
+					}
+				}
 
-		var ok bool
-		pkg, ok = tc.global.pkgs[*pkgInfo]
-		if !ok {
-			pkg, ok = tc.global.stdPkgs[*pkgInfo]
+				if pkgInfo == nil {
+					return nil, fmt.Errorf(""+
+						"There's no package that fits "+
+						"imported identifier: %s.%s",
+						from,
+						name,
+					)
+				}
+			}
+
+			var ok bool
+			pkg, ok = tc.global.pkgs[*pkgInfo]
 			if !ok {
-				panic(fmt.Errorf(""+
-					"TypeChecker: Imports and STD package buffer "+
-					"are desinchronized: %s",
-					spew.Sdump(pkgInfo),
-				))
+				pkg, ok = tc.global.stdPkgs[*pkgInfo]
+				if !ok {
+					panic(fmt.Errorf(""+
+						"TypeChecker: Imports and STD package buffer "+
+						"are desinchronized: %s",
+						spew.Sdump(pkgInfo),
+					))
+				}
 			}
 		}
-	}
 
-	if pkg.Info.Std {
-		stdDefKey := stdDefKey{
-			name:    name,
-			pkgInfo: pkg.Info,
+		if pkg.Info.Std {
+			stdDefKey := stdDefKey{
+				name:    name,
+				pkgInfo: pkg.Info,
+			}
+			if s, ok := tc.global.stdDefinitions[stdDefKey]; ok {
+				return s, nil
+			}
+			def := &types.Definition{
+				Std:         true,
+				Exported:    true,
+				Package:     pkg,
+				Name:        name,
+				Declaration: types.Untyped,
+			}
+			tc.global.stdDefinitions[stdDefKey] = def
+			return def, nil
 		}
-		if s, ok := tc.global.stdDefinitions[stdDefKey]; ok {
-			return s, nil
-		}
-		def := &types.Definition{
-			Std:      true,
-			Exported: true,
-			Package:  pkg,
-			Name:     name,
-		}
-		tc.global.stdDefinitions[stdDefKey] = def
-		return def, nil
+	} else {
+		pkg = tc.pkg
 	}
 
 	if def, ok := pkg.DefinitionsMap[name]; ok {
 		return def, nil
 	}
 
+	// fmt.Printf(
+	// 	"===\n%s\n===",
+	// 	strings.Join([]string{
+	// 		name,
+	// 		// spew.Sdump(declaration),
+	// 		spew.Sdump(pkg),
+	// 		spew.Sdump(tc.pkg),
+	// 		spew.Sdump(tc.pkg.Definitions),
+	// 		spew.Sdump(tc.pkg.DefinitionsMap),
+	// 	}, "\n"),
+	// )
+
+	// fmt.Printf(
+	// 	"===\n%s\n===",
+	// 	strings.Join([]string{
+	// 		name,
+	// 		// spew.Sdump(declaration),
+	// 		spew.Sdump(tc.pkg),
+	// 		spew.Sdump(tc.pkg.Definitions),
+	// 	}, "\n"),
+	// )
+
+	// spew.Dump(pkg.DefinitionsMap)
+	// spew.Dump(tc.global.definitions)
+
 	return nil, fmt.Errorf(
-		"Cannot definition for imported identifier: %s.%s",
+		"Cannot find definition for imported identifier: %s.%s",
 		from,
 		name,
 	)
@@ -279,14 +320,14 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 
 func (tc *typeChecker) meth(
 	name string,
-	t types.Type,
-	f *types.Function,
+	receiver types.Type,
+	signature *types.Function,
 ) *types.Method {
 
 	m := &types.Method{
 		Name:      name,
-		Type:      t,
-		Signature: f,
+		Receiver:  receiver,
+		Signature: signature,
 	}
 
 	if d, ok := tc.global.methods[m.Hash()]; ok {

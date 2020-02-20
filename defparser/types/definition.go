@@ -15,6 +15,12 @@ type Definition struct {
 }
 
 func (d *Definition) Hash() string {
+	if _, ok := d.Declaration.(*Interface); ok {
+		return hash(fmt.Sprintf(
+			defInterfaceTmpl,
+			d.Declaration,
+		))
+	}
 	return hash(d.String())
 }
 
@@ -24,12 +30,6 @@ const (
 )
 
 func (d *Definition) String() string {
-	if _, ok := d.Declaration.(*Interface); ok {
-		return fmt.Sprintf(
-			defInterfaceTmpl,
-			d.Declaration,
-		)
-	}
 	return fmt.Sprintf(
 		defTmpl,
 		d.Package,
