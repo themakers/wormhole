@@ -9,8 +9,6 @@ import (
 	"github.com/themakers/wormhole/defparser/types"
 )
 
-var G interface{}
-
 func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 	var (
 		parse           func(node ast.Node) error
