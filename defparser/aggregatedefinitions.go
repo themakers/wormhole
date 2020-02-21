@@ -9,17 +9,20 @@ import (
 	"github.com/themakers/wormhole/defparser/types"
 )
 
+var G interface{}
+
 func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 	var (
 		parse           func(node ast.Node) error
-		typeDef         func(d *ast.TypeSpec) error
-		funcDef         func(dec *ast.FuncDecl) error
-		methodDef       func(dec *ast.FuncDecl) error
+		typeDef         func(d *ast.TypeSpec) (func() error, error)
+		funcDef         func(dec *ast.FuncDecl) (func() error, error)
+		methodDef       func(dec *ast.FuncDecl) (func() error, error)
 		isIgnorable     func(node ast.Node) bool
 		funcSignature   func(node *ast.FuncType) (*types.Function, error)
 		typeDeclaration func(ast.Node) (types.Type, error)
 
-		fileName string
+		fileName    string
+		definitions []func() error
 	)
 
 	parse = func(node ast.Node) error {
@@ -32,13 +35,26 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 			}
 
 		case *ast.TypeSpec:
-			return typeDef(n)
+			closure, err := typeDef(n)
+			if err != nil {
+				return err
+			}
+			definitions = append(definitions, closure)
 
 		case *ast.FuncDecl:
 			if n.Recv == nil {
-				return funcDef(n)
+				closure, err := funcDef(n)
+				if err != nil {
+					return err
+				}
+				definitions = append(definitions, closure)
+			} else {
+				closure, err := methodDef(n)
+				if err != nil {
+					return err
+				}
+				definitions = append(definitions, closure)
 			}
-			return methodDef(n)
 
 		default:
 			if isIgnorable(node) {
@@ -55,36 +71,44 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 		return nil
 	}
 
-	typeDef = func(d *ast.TypeSpec) error {
+	typeDef = func(d *ast.TypeSpec) (func() error, error) {
 		t, err := typeDeclaration(d.Type)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		_, err = tc.def(d.Name.Name, t)
-		return err
+
+		return func() error {
+			_, err = tc.def(d.Name.Name, t)
+			return err
+		}, nil
 	}
 
-	funcDef = func(dec *ast.FuncDecl) error {
+	funcDef = func(dec *ast.FuncDecl) (func() error, error) {
 		t, err := funcSignature(dec.Type)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		_, err = tc.def(dec.Name.Name, t)
-		return err
+
+		return func() error {
+			_, err = tc.def(dec.Name.Name, t)
+			return err
+		}, nil
 	}
 
-	methodDef = func(dec *ast.FuncDecl) error {
+	methodDef = func(dec *ast.FuncDecl) (func() error, error) {
 		t, err := typeDeclaration(dec.Recv.List[0].Type)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		f, err := funcSignature(dec.Type)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		_, err = tc.def(dec.Name.Name, tc.meth(dec.Name.Name, t, f))
-		return err
+		return func() error {
+			_, err = tc.def(dec.Name.Name, tc.meth(dec.Name.Name, t, f))
+			return err
+		}, nil
 	}
 
 	isIgnorable = func(node ast.Node) bool {
@@ -275,6 +299,12 @@ func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
 			if err := parse(decl); err != nil {
 				return err
 			}
+		}
+	}
+
+	for _, closure := range definitions {
+		if err := closure(); err != nil {
+			return err
 		}
 	}
 

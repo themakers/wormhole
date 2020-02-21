@@ -213,8 +213,6 @@ func (tc *typeChecker) def(
 }
 
 func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
-	fmt.Println("defRef")
-
 	if !isExported(name) {
 		return nil, fmt.Errorf(
 			"STD definition cannot be unexported: %s.%s",
