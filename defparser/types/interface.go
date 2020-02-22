@@ -5,13 +5,28 @@ import (
 	"strings"
 )
 
-var _ Type = &Interface{}
-
-type (
-	Interface struct {
-		Methods []*Method
-	}
+var (
+	_ Type     = &Interface{}
+	_ Selector = &Interface{}
 )
+
+// Interface represent Go's interfaces.
+type Interface struct {
+	// All methods defined in the interface.
+	Methods []*Method
+
+	// Fast access alternative to Interface.Methods with method names as keys.
+	MethodsMap map[string]*Method
+}
+
+func (i *Interface) Select(name string) (Type, error) {
+	if m, ok := i.MethodsMap[name]; ok {
+		return m, nil
+	}
+	return nil, ErrSelectorUndefined{
+		Sel: name,
+	}
+}
 
 func (i *Interface) Hash() string {
 	return hash(i.String())

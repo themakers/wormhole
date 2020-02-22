@@ -5,11 +5,44 @@ import (
 	"strings"
 )
 
-var _ Type = &Struct{}
+var (
+	_ Type     = &Struct{}
+	_ Selector = &Struct{}
+)
 
+// Struct represent Go's structs.
 type Struct struct {
-	Fields    []StructField
+	// Structure fields in the right order.
+	Fields []StructField
+
+	// Fast access alternative to Struct.Fields with field names as keys.
 	FieldsMap map[string]StructField
+
+	// All fields that considered embedded.
+	// Struct.Fields includes Struct.Embedded.
+	Embedded []Selector
+}
+
+func (s *Struct) Select(name string) (Type, error) {
+	if field, ok := s.FieldsMap[name]; ok {
+		return field.Type, nil
+	}
+
+	var res Type
+	for _, s := range s.Embedded {
+		t, err := s.Select(name)
+		if err != nil {
+			return nil, err
+		}
+		if res != nil {
+			return nil, ErrAmbigiousSelector{
+				Sel: name,
+			}
+		}
+		res = t
+	}
+
+	return res, nil
 }
 
 func (s *Struct) Hash() string {
@@ -31,9 +64,12 @@ func (s *Struct) String() string {
 	)
 }
 
-type StructField struct {
-	Name     string
-	Tag      string
-	Exported bool
-	Type     Type
-}
+type (
+	StructField struct {
+		Name     string
+		Tag      string
+		Exported bool
+		Embedded bool
+		Type     Type
+	}
+)

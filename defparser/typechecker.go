@@ -13,6 +13,7 @@ type (
 		pkg                  *types.Package
 		usedNames            map[string]struct{}
 		global               *global
+		undefined            map[string]*undefined
 		undefinedIdentifiers map[string]*types.Definition
 	}
 

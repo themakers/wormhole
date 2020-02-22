@@ -6,10 +6,17 @@ import (
 	"github.com/getlantern/hex"
 )
 
-type Type interface {
-	Hash() string
-	String() string
-}
+type (
+	Type interface {
+		Hash() string
+		String() string
+	}
+
+	Selector interface {
+		Select(string) (Type, error)
+		Type
+	}
+)
 
 var hasher = sha256.New()
 
