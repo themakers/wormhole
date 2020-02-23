@@ -55,13 +55,20 @@ func (d *Definition) Select(name string) (Type, error) {
 }
 
 func (d *Definition) Hash() string {
-	if _, ok := d.Declaration.(*Interface); ok {
-		return hash(fmt.Sprintf(
-			defInterfaceTmpl,
-			d.Declaration,
-		))
+	return d.hash(map[*Definition]bool{})
+}
+
+func (d *Definition) hash(prev map[*Definition]bool) string {
+	if prev[d] {
+		return sum(sum("DEF") + d.Package.hash(prev) + sum(d.Name))
 	}
-	return hash(d.String())
+
+	prev[d] = true
+	return sum(sum("DEF") +
+		sum(d.Package.Info.PkgPath) +
+		sum(d.Name) +
+		d.Declaration.hash(prev),
+	)
 }
 
 const (

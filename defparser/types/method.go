@@ -14,7 +14,11 @@ type Method struct {
 }
 
 func (m *Method) Hash() string {
-	return hash(m.String())
+	return m.hash(map[*Definition]bool{})
+}
+
+func (m *Method) hash(prev map[*Definition]bool) string {
+	return sum(sum("METHOD") + sum(m.Name) + m.Signature.hash(prev))
 }
 
 const methodTmpl = "(%s)%s-%s"

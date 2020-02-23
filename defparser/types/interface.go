@@ -29,7 +29,15 @@ func (i *Interface) Select(name string) (Type, error) {
 }
 
 func (i *Interface) Hash() string {
-	return hash(i.String())
+	return i.hash(map[*Definition]bool{})
+}
+
+func (i *Interface) hash(prev map[*Definition]bool) string {
+	s := sum("INTERFACE")
+	for _, meth := range i.Methods {
+		s += meth.hash(prev)
+	}
+	return sum(s)
 }
 
 const interTmpl = "inter{%s}"

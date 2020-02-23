@@ -29,7 +29,11 @@ type (
 )
 
 func (p *Package) Hash() string {
-	return hash(p.String())
+	return p.hash(map[*Definition]bool{})
+}
+
+func (p *Package) hash(_ map[*Definition]bool) string {
+	return sum(sum("PACKAGE") + sum(p.Info.PkgPath))
 }
 
 const packageTmpl = "<%s>"

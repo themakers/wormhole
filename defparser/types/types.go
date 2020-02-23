@@ -9,6 +9,7 @@ import (
 type (
 	Type interface {
 		Hash() string
+		hash(prev map[*Definition]bool) string
 		String() string
 	}
 
@@ -20,7 +21,7 @@ type (
 
 var hasher = sha256.New()
 
-func hash(v string) string {
+func sum(v string) string {
 	return hex.DefaultEncoding.EncodeToString(hasher.Sum([]byte(v)))
 }
 
@@ -29,7 +30,11 @@ var Untyped Type = untyped{}
 type untyped struct{}
 
 func (u untyped) Hash() string {
-	return hash(u.String())
+	return u.hash(map[*Definition]bool{})
+}
+
+func (u untyped) hash(_ map[*Definition]bool) string {
+	return sum("untyped")
 }
 
 func (_ untyped) String() string {

@@ -20,7 +20,18 @@ type (
 )
 
 func (f *Function) Hash() string {
-	return hash(f.String())
+	return f.hash(map[*Definition]bool{})
+}
+
+func (f *Function) hash(prev map[*Definition]bool) string {
+	s := sum("FUNC")
+	for _, arg := range f.Args {
+		s += arg.Type.hash(prev)
+	}
+	for _, result := range f.Results {
+		s += result.Type.hash(prev)
+	}
+	return sum(s)
 }
 
 const funcTmpl = "func(%s)(%s)"

@@ -46,7 +46,15 @@ func (s *Struct) Select(name string) (Type, error) {
 }
 
 func (s *Struct) Hash() string {
-	return hash(s.String())
+	return s.hash(map[*Definition]bool{})
+}
+
+func (s *Struct) hash(prev map[*Definition]bool) string {
+	res := sum("STRUCT")
+	for _, field := range s.Fields {
+		res += sum(field.Name) + field.Type.hash(prev) + sum(field.Tag)
+	}
+	return sum(res)
 }
 
 const structTmpl = "struct{%s}"

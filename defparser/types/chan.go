@@ -9,7 +9,11 @@ type Chan struct {
 }
 
 func (c *Chan) Hash() string {
-	return hash(c.String())
+	return c.hash(map[*Definition]bool{})
+}
+
+func (c *Chan) hash(prev map[*Definition]bool) string {
+	return sum(sum("CHAN") + c.Type.hash(prev))
 }
 
 const chanTmpl = "chan %s"

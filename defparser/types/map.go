@@ -10,7 +10,11 @@ type Map struct {
 }
 
 func (m *Map) Hash() string {
-	return hash(m.String())
+	return m.hash(map[*Definition]bool{})
+}
+
+func (m *Map) hash(prev map[*Definition]bool) string {
+	return sum(sum("MAP") + m.Key.hash(prev) + m.Value.hash(prev))
 }
 
 const mapTmpl = "map[%s]%s"

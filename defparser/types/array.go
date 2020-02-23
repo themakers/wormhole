@@ -12,7 +12,11 @@ type Array struct {
 }
 
 func (a *Array) Hash() string {
-	return hash(a.String())
+	return a.hash(map[*Definition]bool{})
+}
+
+func (a *Array) hash(prev map[*Definition]bool) string {
+	return sum(sum("ARRAY") + sum(string(a.Len)) + a.Type.hash(prev))
 }
 
 const arrayTmpl = "[%d]%s"

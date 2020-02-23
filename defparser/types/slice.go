@@ -9,7 +9,11 @@ type Slice struct {
 }
 
 func (s *Slice) Hash() string {
-	return hash(s.String())
+	return s.hash(map[*Definition]bool{})
+}
+
+func (s *Slice) hash(prev map[*Definition]bool) string {
+	return sum(sum("SLICE") + s.Type.hash(prev))
 }
 
 const sliceTmpl = "[]%s"

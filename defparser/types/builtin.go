@@ -21,7 +21,11 @@ const (
 type Builtin uint
 
 func (b Builtin) Hash() string {
-	return hash(b.String())
+	return b.hash(map[*Definition]bool{})
+}
+
+func (b Builtin) hash(_ map[*Definition]bool) string {
+	return sum(sum("BUILTIN") + sum(b.String()))
 }
 
 func (b Builtin) String() string {
@@ -50,8 +54,8 @@ func (b Builtin) String() string {
 		return "error"
 	default:
 		panic("Invalid builtin type")
-		return ""
 	}
+	return ""
 }
 
 func String2Builtin(s string) (res Builtin, err error) {
