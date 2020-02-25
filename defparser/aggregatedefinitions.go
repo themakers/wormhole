@@ -9,7 +9,7 @@ import (
 	"github.com/themakers/wormhole/defparser/types"
 )
 
-func aggregateDefinitions(tc *typeChecker, pkg *ast.Package) error {
+func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 	var (
 		parse           func(node ast.Node) error
 		typeDef         func(d *ast.TypeSpec) (func() error, error)

@@ -16,12 +16,12 @@ func Parse(pkgPath string) (*Result, error) {
 	var (
 		do    func(pkgFullPath, pkgPath string, prev map[string]int) (*types.Package, error)
 		index int
-		tc    = newTypeChecker()
+		tr    = newTypeRegister()
 	)
 
 	do = func(pkgFullPath, pkgPath string, prev map[string]int) (*types.Package, error) {
 		var (
-			pkgTC *typeChecker
+			pkgTC *typeRegister
 			pkg   *types.Package
 		)
 
@@ -114,7 +114,7 @@ func Parse(pkgPath string) (*Result, error) {
 				PkgFullPath: pkgFullPath,
 			}
 
-			if pkg, ok = tc.global.pkgs[info]; ok {
+			if pkg, ok = tr.global.pkgs[info]; ok {
 				return pkg, nil
 			}
 
@@ -160,7 +160,7 @@ func Parse(pkgPath string) (*Result, error) {
 				i++
 			}
 
-			pkgTC = tc.newPackage(info, imports)
+			pkgTC = tr.newPackage(info, imports)
 		}
 
 		err = aggregateDefinitions(
@@ -179,5 +179,5 @@ func Parse(pkgPath string) (*Result, error) {
 		return nil, err
 	}
 
-	return tc.getResult(pkg.Info)
+	return tr.getResult(pkg.Info)
 }

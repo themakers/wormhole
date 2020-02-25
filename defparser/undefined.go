@@ -8,25 +8,21 @@ import (
 
 type undefined struct {
 	parents map[string]types.Type
-	pkg     *types.Package
 	name    string
 	isPtr   bool
 }
 
-const undefinedTmpl = "undefinded&%s&"
-
 func (u *undefined) Hash() string {
-	return (&types.Definition{
-		Name:        u.name,
-		Package:     u.pkg,
-		Exported:    isExported(u.name),
-		Declaration: types.Untyped,
-	}).Hash()
+	return u.hash(nil)
+}
+
+func (u *undefined) hash(_ map[*types.Definition]bool) string {
+	return u.String()
 }
 
 func (u *undefined) String() string {
 	return fmt.Sprintf(
-		undefinedTmpl,
+		"<undefined>%s",
 		u.name,
 	)
 }

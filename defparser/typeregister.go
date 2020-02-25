@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	typeChecker struct {
+	typeRegister struct {
 		pkg                  *types.Package
 		usedNames            map[string]struct{}
 		global               *global
@@ -35,24 +35,24 @@ type (
 	}
 )
 
-func newTypeChecker() *typeChecker {
-	return &typeChecker{
+func newTypeRegister() *typeRegister {
+	return &typeRegister{
 		global: &global{
-			stdPkgs:        make(map[types.PackageInfo]*types.Package),
-			pkgs:           make(map[types.PackageInfo]*types.Package),
-			usedBuiltins:   make(map[string]types.Builtin),
-			implicit:       make(map[string]types.Type),
-			definitions:    make(map[string]*types.Definition),
-			methods:        make(map[string]*types.Method),
-			stdDefinitions: make(map[stdDefKey]*types.Definition),
+			stdPkgs:        map[types.PackageInfo]*types.Package{},
+			pkgs:           map[types.PackageInfo]*types.Package{},
+			usedBuiltins:   map[string]types.Builtin{},
+			implicit:       map[string]types.Type{},
+			definitions:    map[string]*types.Definition{},
+			methods:        map[string]*types.Method{},
+			stdDefinitions: map[stdDefKey]*types.Definition{},
 		},
 		// methods: make(map[string]*types.Method),
 		// importedDefinitions: make(map[impDef]*types.Definition),
 	}
 }
 
-func (tc *typeChecker) getResult(rootPkg types.PackageInfo) (*Result, error) {
-	root, ok := tc.global.pkgs[rootPkg]
+func (tr *typeRegister) getResult(rootPkg types.PackageInfo) (*Result, error) {
+	root, ok := tr.global.pkgs[rootPkg]
 	if !ok {
 		return nil, fmt.Errorf(
 			"Cannot find root package %s",
@@ -62,52 +62,52 @@ func (tc *typeChecker) getResult(rootPkg types.PackageInfo) (*Result, error) {
 
 	res := &Result{
 		Root:           root,
-		Definitions:    make([]*types.Definition, len(tc.global.definitions)),
-		STDDefinitions: make([]*types.Definition, len(tc.global.stdDefinitions)),
-		Packages:       make([]*types.Package, len(tc.global.pkgs)),
-		STDPackages:    make([]*types.Package, len(tc.global.stdPkgs)),
-		Methods:        make([]*types.Method, len(tc.global.methods)),
-		Types:          make([]types.Type, len(tc.global.implicit)),
+		Definitions:    make([]*types.Definition, len(tr.global.definitions)),
+		STDDefinitions: make([]*types.Definition, len(tr.global.stdDefinitions)),
+		Packages:       make([]*types.Package, len(tr.global.pkgs)),
+		STDPackages:    make([]*types.Package, len(tr.global.stdPkgs)),
+		Methods:        make([]*types.Method, len(tr.global.methods)),
+		Types:          make([]types.Type, len(tr.global.implicit)),
 	}
 
 	{
 		var i int
-		for _, pkg := range tc.global.stdPkgs {
+		for _, pkg := range tr.global.stdPkgs {
 			res.STDPackages[i] = pkg
 			i++
 		}
 	}
 	{
 		var i int
-		for _, def := range tc.global.stdDefinitions {
+		for _, def := range tr.global.stdDefinitions {
 			res.STDDefinitions[i] = def
 			i++
 		}
 	}
 	{
 		var i int
-		for _, pkg := range tc.global.pkgs {
+		for _, pkg := range tr.global.pkgs {
 			res.Packages[i] = pkg
 			i++
 		}
 	}
 	{
 		var i int
-		for _, def := range tc.global.definitions {
+		for _, def := range tr.global.definitions {
 			res.Definitions[i] = def
 			i++
 		}
 	}
 	{
 		var i int
-		for _, impl := range tc.global.implicit {
+		for _, impl := range tr.global.implicit {
 			res.Types[i] = impl
 			i++
 		}
 	}
 	{
 		var i int
-		for _, meth := range tc.global.methods {
+		for _, meth := range tr.global.methods {
 			res.Methods[i] = meth
 			i++
 		}
@@ -115,9 +115,9 @@ func (tc *typeChecker) getResult(rootPkg types.PackageInfo) (*Result, error) {
 	{
 		var (
 			i        int
-			builtins = make([]types.Type, len(tc.global.usedBuiltins))
+			builtins = make([]types.Type, len(tr.global.usedBuiltins))
 		)
-		for _, b := range tc.global.usedBuiltins {
+		for _, b := range tr.global.usedBuiltins {
 			builtins[i] = b
 			i++
 		}
@@ -127,19 +127,19 @@ func (tc *typeChecker) getResult(rootPkg types.PackageInfo) (*Result, error) {
 	return res, nil
 }
 
-func (tc *typeChecker) newPackage(
+func (tr *typeRegister) newPackage(
 	info types.PackageInfo,
 	imports []types.Import,
-) *typeChecker {
-	pkg, ok := tc.global.pkgs[info]
+) *typeRegister {
+	pkg, ok := tr.global.pkgs[info]
 	if !ok {
 		importsMap := make(map[types.PackageInfo]types.Import)
 		for _, imp := range imports {
 			if imp.Package.Info.Std {
-				if s, ok := tc.global.stdPkgs[imp.Package.Info]; ok {
+				if s, ok := tr.global.stdPkgs[imp.Package.Info]; ok {
 					imp.Package = s
 				} else {
-					tc.global.stdPkgs[imp.Package.Info] = imp.Package
+					tr.global.stdPkgs[imp.Package.Info] = imp.Package
 				}
 			}
 			importsMap[imp.Package.Info] = imp
@@ -152,7 +152,7 @@ func (tc *typeChecker) newPackage(
 			DefinitionsMap: make(map[string]*types.Definition),
 			MethodsMap:     make(map[string]*types.Method),
 		}
-		tc.global.pkgs[info] = pkg
+		tr.global.pkgs[info] = pkg
 	} else {
 		fmt.Printf(
 			"WARNING: something went strange: %s",
@@ -160,60 +160,60 @@ func (tc *typeChecker) newPackage(
 		)
 	}
 
-	return &typeChecker{
+	return &typeRegister{
 		undefinedIdentifiers: make(map[string]*types.Definition),
 		usedNames:            make(map[string]struct{}),
 		pkg:                  pkg,
-		global:               tc.global,
+		global:               tr.global,
 	}
 }
 
-func (tc *typeChecker) regBuiltin(b string) (types.Builtin, error) {
+func (tr *typeRegister) regBuiltin(b string) (types.Builtin, error) {
 	t, err := types.String2Builtin(b)
 	if err != nil {
 		return types.Byte, err
 	}
-	tc.global.usedBuiltins[t.Hash()] = t
+	tr.global.usedBuiltins[t.Hash()] = t
 	return t, nil
 }
 
-func (tc *typeChecker) def(
+func (tr *typeRegister) def(
 	name string,
 	declaration types.Type,
 ) (*types.Definition, error) {
-	if def, ok := tc.undefinedIdentifiers[name]; ok {
+	if def, ok := tr.undefinedIdentifiers[name]; ok {
 		def.Declaration = declaration
-		delete(tc.undefinedIdentifiers, name)
+		delete(tr.undefinedIdentifiers, name)
 		return def, nil
 	}
 
-	if _, ok := tc.usedNames[name]; ok {
+	if _, ok := tr.usedNames[name]; ok {
 		return nil, fmt.Errorf(
 			"Duplicated identifier: %s",
 			name,
 		)
 	}
-	tc.usedNames[name] = struct{}{}
+	tr.usedNames[name] = struct{}{}
 
 	def := &types.Definition{
 		Name:        name,
 		Declaration: declaration,
 		Exported:    isExported(name),
-		Package:     tc.pkg,
+		Package:     tr.pkg,
 	}
 
-	if def, ok := tc.global.definitions[def.Hash()]; ok {
+	if def, ok := tr.global.definitions[def.Hash()]; ok {
 		return def, nil
 	}
-	tc.global.definitions[def.Hash()] = def
+	tr.global.definitions[def.Hash()] = def
 
-	tc.pkg.Definitions = append(tc.pkg.Definitions, def)
-	tc.pkg.DefinitionsMap[def.Name] = def
+	tr.pkg.Definitions = append(tr.pkg.Definitions, def)
+	tr.pkg.DefinitionsMap[def.Name] = def
 
 	return def, nil
 }
 
-func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
+func (tr *typeRegister) defRef(name, from string) (*types.Definition, error) {
 	if !isExported(name) {
 		return nil, fmt.Errorf(
 			"STD definition cannot be unexported: %s.%s",
@@ -226,13 +226,13 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 	if from != "" {
 		{
 			var pkgInfo *types.PackageInfo
-			for _, imp := range tc.pkg.Imports {
+			for _, imp := range tr.pkg.Imports {
 				if imp.Alias == from {
 					pkgInfo = &imp.Package.Info
 				}
 			}
 			if pkgInfo == nil {
-				for _, imp := range tc.pkg.Imports {
+				for _, imp := range tr.pkg.Imports {
 					if imp.Package.Info.PkgName == from {
 						pkgInfo = &imp.Package.Info
 					}
@@ -249,9 +249,9 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 			}
 
 			var ok bool
-			pkg, ok = tc.global.pkgs[*pkgInfo]
+			pkg, ok = tr.global.pkgs[*pkgInfo]
 			if !ok {
-				pkg, ok = tc.global.stdPkgs[*pkgInfo]
+				pkg, ok = tr.global.stdPkgs[*pkgInfo]
 				if !ok {
 					panic(fmt.Errorf(""+
 						"TypeChecker: Imports and STD package buffer "+
@@ -267,7 +267,7 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 				name:    name,
 				pkgInfo: pkg.Info,
 			}
-			if s, ok := tc.global.stdDefinitions[stdDefKey]; ok {
+			if s, ok := tr.global.stdDefinitions[stdDefKey]; ok {
 				return s, nil
 			}
 			def := &types.Definition{
@@ -277,25 +277,25 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 				Name:        name,
 				Declaration: types.Untyped,
 			}
-			tc.global.stdDefinitions[stdDefKey] = def
+			tr.global.stdDefinitions[stdDefKey] = def
 			return def, nil
 		}
 	} else {
-		pkg = tc.pkg
+		pkg = tr.pkg
 	}
 
 	if def, ok := pkg.DefinitionsMap[name]; ok {
 		return def, nil
-	} else if pkg == tc.pkg {
-		if def, ok := tc.undefinedIdentifiers[name]; ok {
+	} else if pkg == tr.pkg {
+		if def, ok := tr.undefinedIdentifiers[name]; ok {
 			return def, nil
 		}
 		var err error
-		def, err = tc.def(name, types.Untyped)
+		def, err = tr.def(name, types.Untyped)
 		if err != nil {
 			return nil, err
 		}
-		tc.undefinedIdentifiers[name] = def
+		tr.undefinedIdentifiers[name] = def
 		return def, nil
 	}
 
@@ -306,7 +306,7 @@ func (tc *typeChecker) defRef(name, from string) (*types.Definition, error) {
 	)
 }
 
-func (tc *typeChecker) meth(
+func (tr *typeRegister) meth(
 	name string,
 	receiver types.Type,
 	signature *types.Function,
@@ -318,14 +318,14 @@ func (tc *typeChecker) meth(
 		Signature: signature,
 	}
 
-	if d, ok := tc.global.methods[m.Hash()]; ok {
+	if d, ok := tr.global.methods[m.Hash()]; ok {
 		return d
 	}
-	tc.global.methods[m.Hash()] = m
+	tr.global.methods[m.Hash()] = m
 	return m
 }
 
-func (tc *typeChecker) mkStructField(
+func (tr *typeRegister) mkStructField(
 	name,
 	tag string,
 	t types.Type,
@@ -339,21 +339,21 @@ func (tc *typeChecker) mkStructField(
 	}
 }
 
-func (tc *typeChecker) implChan(t types.Type) *types.Chan {
+func (tr *typeRegister) implChan(t types.Type) *types.Chan {
 	c := &types.Chan{
 		Type: t,
 	}
-	return tc.checkImplicit(c).(*types.Chan)
+	return tr.checkImplicit(c).(*types.Chan)
 }
 
-func (tc *typeChecker) implPtr(t types.Type) *types.Pointer {
+func (tr *typeRegister) implPtr(t types.Type) *types.Pointer {
 	p := &types.Pointer{
 		Type: t,
 	}
-	return tc.checkImplicit(p).(*types.Pointer)
+	return tr.checkImplicit(p).(*types.Pointer)
 }
 
-func (tc *typeChecker) implStruct(fields []types.StructField) *types.Struct {
+func (tr *typeRegister) implStruct(fields []types.StructField) *types.Struct {
 	fieldsMap := make(map[string]types.StructField)
 	for _, field := range fields {
 		fieldsMap[field.Name] = field
@@ -363,17 +363,17 @@ func (tc *typeChecker) implStruct(fields []types.StructField) *types.Struct {
 		Fields:    fields,
 		FieldsMap: fieldsMap,
 	}
-	return tc.checkImplicit(s).(*types.Struct)
+	return tr.checkImplicit(s).(*types.Struct)
 }
 
-func (tc *typeChecker) implInter(methods []*types.Method) *types.Interface {
+func (tr *typeRegister) implInter(methods []*types.Method) *types.Interface {
 	i := &types.Interface{
 		Methods: methods,
 	}
-	return tc.checkImplicit(i).(*types.Interface)
+	return tr.checkImplicit(i).(*types.Interface)
 }
 
-func (tc *typeChecker) implFunc(
+func (tr *typeRegister) implFunc(
 	args []types.NameTypePair,
 	results []types.NameTypePair,
 ) *types.Function {
@@ -382,37 +382,37 @@ func (tc *typeChecker) implFunc(
 		Args:    args,
 		Results: results,
 	}
-	return tc.checkImplicit(f).(*types.Function)
+	return tr.checkImplicit(f).(*types.Function)
 }
 
-func (tc *typeChecker) implMap(key, value types.Type) *types.Map {
+func (tr *typeRegister) implMap(key, value types.Type) *types.Map {
 	m := &types.Map{
 		Key:   key,
 		Value: value,
 	}
-	return tc.checkImplicit(m).(*types.Map)
+	return tr.checkImplicit(m).(*types.Map)
 }
 
-func (tc *typeChecker) implSlice(t types.Type) *types.Slice {
+func (tr *typeRegister) implSlice(t types.Type) *types.Slice {
 	s := &types.Slice{
 		Type: t,
 	}
-	return tc.checkImplicit(s).(*types.Slice)
+	return tr.checkImplicit(s).(*types.Slice)
 }
 
-func (tc *typeChecker) implArray(l int, t types.Type) *types.Array {
+func (tr *typeRegister) implArray(l int, t types.Type) *types.Array {
 	a := &types.Array{
 		Len:  l,
 		Type: t,
 	}
-	return tc.checkImplicit(a).(*types.Array)
+	return tr.checkImplicit(a).(*types.Array)
 }
 
-func (tc *typeChecker) checkImplicit(t types.Type) types.Type {
-	if d, ok := tc.global.implicit[t.Hash()]; ok {
+func (tr *typeRegister) checkImplicit(t types.Type) types.Type {
+	if d, ok := tr.global.implicit[t.Hash()]; ok {
 		return d
 	}
-	tc.global.implicit[t.Hash()] = t
+	tr.global.implicit[t.Hash()] = t
 	return t
 }
 
