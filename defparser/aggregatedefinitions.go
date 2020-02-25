@@ -104,7 +104,7 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 		}
 
 		return func() error {
-			_, err = tc.def(dec.Name.Name, tc.meth(dec.Name.Name, t, f))
+			_, err = tc.def(dec.Name.Name, tc.method(dec.Name.Name, t, f))
 			return err
 		}, nil
 	}
@@ -229,7 +229,7 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 				if err != nil {
 					return nil, err
 				}
-				meths[i] = tc.meth(field.Names[0].Name, types.Untyped, f)
+				meths[i] = tc.method(field.Names[0].Name, types.Untyped, f)
 			}
 			return tc.implInter(meths), nil
 

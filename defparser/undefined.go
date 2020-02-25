@@ -7,9 +7,8 @@ import (
 )
 
 type undefined struct {
-	parents map[string]types.Type
-	name    string
-	isPtr   bool
+	parents []interface{}
+	*types.Definition
 }
 
 func (u *undefined) Hash() string {
@@ -23,67 +22,45 @@ func (u *undefined) hash(_ map[*types.Definition]bool) string {
 func (u *undefined) String() string {
 	return fmt.Sprintf(
 		"<undefined>%s",
-		u.name,
+		u.Name,
 	)
 }
 
-func (u *undefined) define() error {
-	def, ok := u.pkg.DefinitionsMap[u.name]
-	if !ok {
-		return fmt.Errorf(
-			"\"%s\" is undefined",
-			u.name,
-		)
-	}
-
+func (u *undefined) define(d *types.Definition) {
 	for _, parent := range u.parents {
 		switch p := parent.(type) {
+		case *types.StructField:
+			p.Type = d
+
+		case *types.Chan:
+			p.Type = d
+
+		case *types.Array:
+			p.Type = d
+
+		case *types.Slice:
+			p.Type = d
+
 		case *types.Definition:
-			p.Declaration = def
+			p.Declaration = d
 
-		case *types.Function:
-			for i, arg := range p.Args {
-				if arg.Type == u {
-					p.Args[i].Type = def
-				}
-			}
-			for i, result := range p.Results {
-				if result.Type == u {
-					p.Results[i].Type = def
-				}
-			}
+		case *types.Pointer:
+			p.Type = d
 
-		case *types.Method:
-			p.Receiver = def
-
-		case *types.Struct:
-			field, ok := p.FieldsMap[u.name]
-			if !ok {
-				panic(fmt.Errorf(
-					"\"%s\"undefined and \"%s\" fields are desynchronized",
-					u.name,
-					p,
-				))
-			}
-
-			// var t types.Type
-			// switch d := def.Declaration.(type) {
-			// case *types.Struct:
-
-			// case *types.Interface:
-
-			// }
-
-			if u.isPtr {
-				field.Type = &types.Pointer{
-					Type: def,
-				}
+		case *types.Map:
+			if p.Key == u {
+				p.Key = d
+			} else if p.Value == u {
+				p.Value = d
 			} else {
-				field.Type = def
+				panic("WTF?")
 			}
-			p.FieldsMap[u.name] = field
+
+		case *types.NameTypePair:
+			p.Type = d
+
+		default:
+			panic("Unknown parent")
 		}
 	}
-
-	return nil
 }

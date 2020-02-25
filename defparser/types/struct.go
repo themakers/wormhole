@@ -8,10 +8,10 @@ var (
 // Struct represent Go's structs.
 type Struct struct {
 	// Structure fields in the right order.
-	Fields []StructField
+	Fields []*StructField
 
 	// Fast access alternative to Struct.Fields with field names as keys.
-	FieldsMap map[string]StructField
+	FieldsMap map[string]*StructField
 
 	// All fields that considered embedded.
 	// Struct.Fields includes Struct.Embedded.

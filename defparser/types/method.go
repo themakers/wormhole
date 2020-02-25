@@ -6,7 +6,7 @@ type Method struct {
 	Name string
 
 	// If Untyped, then it's a part of interface type definition
-	Receiver Type
+	Receiver *Definition
 
 	Signature *Function
 }

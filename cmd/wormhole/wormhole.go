@@ -10,6 +10,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser"
+	"github.com/themakers/wormhole/defparser/types"
 	"github.com/themakers/wormhole/wormparse"
 )
 
@@ -43,7 +44,34 @@ func parse(wd string) *wormparse.Package {
 		}
 	}
 
-	spew.Dump(res.Packages[0].Info.PkgPath)
+	func() {
+		f, err := os.Create("debug.log")
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		logger := log.New(f, "", 0)
+
+		log := func(v interface{}) {
+			ts := v.([]types.Type)
+			for _, t := range ts {
+				logger.Printf(
+					"====\n%s\n%s\n====\n\n",
+					t.Hash(),
+					t,
+				)
+			}
+			logger.Print("##############\n\n")
+		}
+
+		log(res.Packages)
+		log(res.STDPackages)
+		log(res.Definitions)
+		log(res.STDDefinitions)
+		log(res.Methods)
+	}()
+
+	// spew.Dump(res.Packages[0].Info.PkgPath)
 
 	fmt.Println("\n\n\n\n###### DONE ########\n\n\n\n")
 

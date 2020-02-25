@@ -4,8 +4,11 @@ var _ Type = &Function{}
 
 type (
 	Function struct {
-		Args    []NameTypePair
-		Results []NameTypePair
+		Args    []*NameTypePair
+		ArgsMap map[string]*NameTypePair
+
+		Results    []*NameTypePair
+		ResultsMap map[string]*NameTypePair
 	}
 
 	NameTypePair struct {

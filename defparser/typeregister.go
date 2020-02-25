@@ -10,11 +10,10 @@ import (
 
 type (
 	typeRegister struct {
-		pkg                  *types.Package
-		usedNames            map[string]struct{}
-		global               *global
-		undefined            map[string]*undefined
-		undefinedIdentifiers map[string]*types.Definition
+		pkg       *types.Package
+		usedNames map[string]struct{}
+		global    *global
+		undefined map[string]*undefined
 	}
 
 	global struct {
@@ -149,8 +148,8 @@ func (tr *typeRegister) newPackage(
 			Info:           info,
 			Imports:        imports,
 			ImportsMap:     importsMap,
-			DefinitionsMap: make(map[string]*types.Definition),
-			MethodsMap:     make(map[string]*types.Method),
+			DefinitionsMap: map[string]*types.Definition{},
+			MethodsMap:     map[string]*types.Method{},
 		}
 		tr.global.pkgs[info] = pkg
 	} else {
@@ -161,10 +160,10 @@ func (tr *typeRegister) newPackage(
 	}
 
 	return &typeRegister{
-		undefinedIdentifiers: make(map[string]*types.Definition),
-		usedNames:            make(map[string]struct{}),
-		pkg:                  pkg,
-		global:               tr.global,
+		undefined: map[string]*undefined{},
+		usedNames: map[string]struct{}{},
+		pkg:       pkg,
+		global:    tr.global,
 	}
 }
 
@@ -181,12 +180,6 @@ func (tr *typeRegister) def(
 	name string,
 	declaration types.Type,
 ) (*types.Definition, error) {
-	if def, ok := tr.undefinedIdentifiers[name]; ok {
-		def.Declaration = declaration
-		delete(tr.undefinedIdentifiers, name)
-		return def, nil
-	}
-
 	if _, ok := tr.usedNames[name]; ok {
 		return nil, fmt.Errorf(
 			"Duplicated identifier: %s",
@@ -210,20 +203,30 @@ func (tr *typeRegister) def(
 	tr.pkg.Definitions = append(tr.pkg.Definitions, def)
 	tr.pkg.DefinitionsMap[def.Name] = def
 
+	if undef, ok := tr.undefined[name]; ok {
+		def.Methods = undef.Methods
+		def.MethodsMap = undef.MethodsMap
+		undef.define(def)
+		delete(tr.undefined, name)
+	} else {
+		def.Methods = []*types.Method{}
+		def.MethodsMap = map[string]*types.Method{}
+	}
+
 	return def, nil
 }
 
-func (tr *typeRegister) defRef(name, from string) (*types.Definition, error) {
-	if !isExported(name) {
-		return nil, fmt.Errorf(
-			"STD definition cannot be unexported: %s.%s",
-			from,
-			name,
-		)
-	}
-
+func (tr *typeRegister) defRef(name, from string) (types.Type, error) {
 	var pkg *types.Package
 	if from != "" {
+		if !isExported(name) {
+			return nil, fmt.Errorf(
+				"definition from another package cannot be unexported: %s.%s",
+				from,
+				name,
+			)
+		}
+
 		{
 			var pkgInfo *types.PackageInfo
 			for _, imp := range tr.pkg.Imports {
@@ -287,15 +290,20 @@ func (tr *typeRegister) defRef(name, from string) (*types.Definition, error) {
 	if def, ok := pkg.DefinitionsMap[name]; ok {
 		return def, nil
 	} else if pkg == tr.pkg {
-		if def, ok := tr.undefinedIdentifiers[name]; ok {
+		if def, ok := tr.undefined[name]; ok {
 			return def, nil
 		}
-		var err error
-		def, err = tr.def(name, types.Untyped)
-		if err != nil {
-			return nil, err
+
+		def := &undefined{
+			parents: []interface{}{},
+			Definition: &types.Definition{
+				Name:       name,
+				Package:    pkg,
+				Methods:    []*types.Method{},
+				MethodsMap: map[string]*types.Method{},
+			},
 		}
-		tr.undefinedIdentifiers[name] = def
+		tr.undefined[name] = def
 		return def, nil
 	}
 
@@ -306,11 +314,28 @@ func (tr *typeRegister) defRef(name, from string) (*types.Definition, error) {
 	)
 }
 
-func (tr *typeRegister) meth(
+func (tr *typeRegister) method(
 	name string,
-	receiver types.Type,
+	receiver *types.Definition,
 	signature *types.Function,
-) *types.Method {
+) error {
+	if receiver.Package == tr.pkg {
+		return fmt.Errorf(
+			"can't define method \"%s\" for type \"%s\" defined another package \"%s\"",
+			name,
+			receiver.Name,
+			receiver.Package.Info.PkgPath,
+		)
+	}
+
+	if _, ok := receiver.MethodsMap[name]; ok {
+		return fmt.Errorf(
+			"method \"%s\" were defined on type \"%s\"before in package %s",
+			name,
+			receiver.Name,
+			receiver.Package.Info.PkgPath,
+		)
+	}
 
 	m := &types.Method{
 		Name:      name,
@@ -318,102 +343,170 @@ func (tr *typeRegister) meth(
 		Signature: signature,
 	}
 
-	if d, ok := tr.global.methods[m.Hash()]; ok {
-		return d
-	}
-	tr.global.methods[m.Hash()] = m
-	return m
+	receiver.Methods = append(receiver.Methods, m)
+	receiver.MethodsMap[name] = m
+
+	return nil
+}
+
+func (tr *typeRegister) implMethod(
+	name string,
+	signature *types.Function,
+) (*types.Method, error) {
 }
 
 func (tr *typeRegister) mkStructField(
 	name,
 	tag string,
 	t types.Type,
-) types.StructField {
-
-	return types.StructField{
+) *types.StructField {
+	field := &types.StructField{
 		Name:     name,
 		Tag:      tag,
 		Exported: isExported(name),
 		Type:     t,
 	}
+
+	if def, ok := t.(*undefined); ok {
+		def.parents = append(def.parents, field)
+	}
+
+	return field
+}
+
+func (tr *typeRegister) mkNameTypePair(
+	name string,
+	t types.Type,
+) *types.NameTypePair {
+	pair := &types.NameTypePair{
+		Name: name,
+		Type: t,
+	}
+
+	if def, ok := t.(*undefined); ok {
+		def.parents = append(def.parents, pair)
+	}
+
+	return pair
 }
 
 func (tr *typeRegister) implChan(t types.Type) *types.Chan {
-	c := &types.Chan{
+	t, ok := tr.checkImplicit(&types.Chan{
 		Type: t,
+	})
+
+	if !ok {
+		if def, ok := t.(*undefined); ok {
+			def.parents = append(def.parents, t)
+		}
 	}
-	return tr.checkImplicit(c).(*types.Chan)
+
+	return t.(*types.Chan)
 }
 
 func (tr *typeRegister) implPtr(t types.Type) *types.Pointer {
-	p := &types.Pointer{
+	t, ok := tr.checkImplicit(&types.Pointer{
 		Type: t,
+	})
+
+	if !ok {
+		if def, ok := t.(*undefined); ok {
+			def.parents = append(def.parents, t)
+		}
 	}
-	return tr.checkImplicit(p).(*types.Pointer)
+
+	return t.(*types.Pointer)
 }
 
-func (tr *typeRegister) implStruct(fields []types.StructField) *types.Struct {
-	fieldsMap := make(map[string]types.StructField)
+func (tr *typeRegister) implStruct(fields []*types.StructField) *types.Struct {
+	fieldsMap := make(map[string]*types.StructField)
 	for _, field := range fields {
 		fieldsMap[field.Name] = field
 	}
 
-	s := &types.Struct{
+	t, _ := tr.checkImplicit(&types.Struct{
 		Fields:    fields,
 		FieldsMap: fieldsMap,
-	}
-	return tr.checkImplicit(s).(*types.Struct)
+	})
+
+	return t.(*types.Struct)
 }
 
 func (tr *typeRegister) implInter(methods []*types.Method) *types.Interface {
-	i := &types.Interface{
+	t, _ := tr.checkImplicit(&types.Interface{
 		Methods: methods,
-	}
-	return tr.checkImplicit(i).(*types.Interface)
+	})
+
+	return t.(*types.Interface)
 }
 
 func (tr *typeRegister) implFunc(
-	args []types.NameTypePair,
-	results []types.NameTypePair,
+	args []*types.NameTypePair,
+	results []*types.NameTypePair,
 ) *types.Function {
 
-	f := &types.Function{
+	t, _ := tr.checkImplicit(&types.Function{
 		Args:    args,
 		Results: results,
-	}
-	return tr.checkImplicit(f).(*types.Function)
+	})
+
+	return t.(*types.Function)
 }
 
 func (tr *typeRegister) implMap(key, value types.Type) *types.Map {
-	m := &types.Map{
+	t, ok := tr.checkImplicit(&types.Map{
 		Key:   key,
 		Value: value,
+	})
+
+	if !ok {
+		if def, ok := key.(*undefined); ok {
+			def.parents = append(def.parents, t)
+		}
+
+		if def, ok := value.(*undefined); ok {
+			def.parents = append(def.parents, t)
+		}
 	}
-	return tr.checkImplicit(m).(*types.Map)
+
+	return t.(*types.Map)
 }
 
 func (tr *typeRegister) implSlice(t types.Type) *types.Slice {
-	s := &types.Slice{
+	t, ok := tr.checkImplicit(&types.Slice{
 		Type: t,
+	})
+
+	if !ok {
+		if def, ok := t.(*undefined); ok {
+			def.parents = append(def.parents, t)
+		}
 	}
-	return tr.checkImplicit(s).(*types.Slice)
+
+	return t.(*types.Slice)
 }
 
 func (tr *typeRegister) implArray(l int, t types.Type) *types.Array {
-	a := &types.Array{
+	t, ok := tr.checkImplicit(&types.Array{
 		Len:  l,
 		Type: t,
+	})
+
+	if !ok {
+		if def, ok := t.(*undefined); ok {
+			def.parents = append(def.parents, t)
+		}
 	}
-	return tr.checkImplicit(a).(*types.Array)
+
+	return t.(*types.Array)
 }
 
-func (tr *typeRegister) checkImplicit(t types.Type) types.Type {
+func (tr *typeRegister) checkImplicit(t types.Type) (types.Type, bool) {
 	if d, ok := tr.global.implicit[t.Hash()]; ok {
-		return d
+		return d, true
 	}
 	tr.global.implicit[t.Hash()] = t
-	return t
+	return t, false
 }
 
 func isExported(s string) bool {

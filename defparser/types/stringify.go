@@ -41,7 +41,7 @@ func stringify(t Type) string {
 				)
 			}
 
-			if prev[n] {
+			if prev[n] || n.Declaration == nil {
 				return fmt.Sprintf(
 					"%s.%s",
 					do(n.Package),
