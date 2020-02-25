@@ -1,10 +1,5 @@
 package types
 
-import (
-	"fmt"
-	"strings"
-)
-
 var (
 	_ Type     = &Interface{}
 	_ Selector = &Interface{}
@@ -40,17 +35,6 @@ func (i *Interface) hash(prev map[*Definition]bool) string {
 	return sum(s)
 }
 
-const interTmpl = "inter{%s}"
-
 func (i *Interface) String() string {
-	methods := make([]string, len(i.Methods))
-
-	for i, meth := range i.Methods {
-		methods[i] = meth.String()
-	}
-
-	return fmt.Sprintf(
-		interTmpl,
-		strings.Join(methods, ","),
-	)
+	return stringify(i)
 }

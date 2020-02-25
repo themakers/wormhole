@@ -21,7 +21,7 @@ const (
 type Builtin uint
 
 func (b Builtin) Hash() string {
-	return b.hash(map[*Definition]bool{})
+	return b.hash(nil)
 }
 
 func (b Builtin) hash(_ map[*Definition]bool) string {
@@ -29,33 +29,7 @@ func (b Builtin) hash(_ map[*Definition]bool) string {
 }
 
 func (b Builtin) String() string {
-	switch b {
-	case Int:
-		return "int"
-	case Int32:
-		return "int32"
-	case Int64:
-		return "int64"
-	case Uint:
-		return "uint"
-	case Uint32:
-		return "uint32"
-	case Uint64:
-		return "uint64"
-	case Byte:
-		return "byte"
-	case String:
-		return "string"
-	case Rune:
-		return "rune"
-	case Bool:
-		return "bool"
-	case Error:
-		return "error"
-	default:
-		panic("Invalid builtin type")
-	}
-	return ""
+	return stringify(b)
 }
 
 func String2Builtin(s string) (res Builtin, err error) {

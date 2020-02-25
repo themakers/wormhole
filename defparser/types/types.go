@@ -10,7 +10,6 @@ type (
 	Type interface {
 		Hash() string
 		hash(prev map[*Definition]bool) string
-		String() string
 	}
 
 	Selector interface {
@@ -30,13 +29,13 @@ var Untyped Type = untyped{}
 type untyped struct{}
 
 func (u untyped) Hash() string {
-	return u.hash(map[*Definition]bool{})
+	return u.hash(nil)
 }
 
 func (u untyped) hash(_ map[*Definition]bool) string {
 	return sum("untyped")
 }
 
-func (_ untyped) String() string {
-	return ""
+func (u untyped) String() string {
+	return stringify(u)
 }

@@ -1,9 +1,5 @@
 package types
 
-import (
-	"fmt"
-)
-
 var _ Type = &Array{}
 
 type Array struct {
@@ -19,8 +15,6 @@ func (a *Array) hash(prev map[*Definition]bool) string {
 	return sum(sum("ARRAY") + sum(string(a.Len)) + a.Type.hash(prev))
 }
 
-const arrayTmpl = "[%d]%s"
-
 func (a *Array) String() string {
-	return fmt.Sprintf(arrayTmpl, a.Len, a.Type)
+	return stringify(a)
 }

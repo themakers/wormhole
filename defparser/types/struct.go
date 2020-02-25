@@ -1,10 +1,5 @@
 package types
 
-import (
-	"fmt"
-	"strings"
-)
-
 var (
 	_ Type     = &Struct{}
 	_ Selector = &Struct{}
@@ -57,19 +52,8 @@ func (s *Struct) hash(prev map[*Definition]bool) string {
 	return sum(res)
 }
 
-const structTmpl = "struct{%s}"
-
 func (s *Struct) String() string {
-	fields := make([]string, len(s.Fields))
-
-	for i, field := range s.Fields {
-		fields[i] = field.Name + ":" + field.Type.String()
-	}
-
-	return fmt.Sprintf(
-		structTmpl,
-		strings.Join(fields, ","),
-	)
+	return stringify(s)
 }
 
 type (

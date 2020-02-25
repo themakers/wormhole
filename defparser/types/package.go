@@ -1,7 +1,5 @@
 package types
 
-import "fmt"
-
 var _ Type = &Package{}
 
 type (
@@ -36,11 +34,6 @@ func (p *Package) hash(_ map[*Definition]bool) string {
 	return sum(sum("PACKAGE") + sum(p.Info.PkgPath))
 }
 
-const packageTmpl = "<%s>"
-
 func (p *Package) String() string {
-	return fmt.Sprintf(
-		packageTmpl,
-		p.Info.PkgPath,
-	)
+	return stringify(p)
 }

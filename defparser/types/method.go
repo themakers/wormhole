@@ -1,7 +1,5 @@
 package types
 
-import "fmt"
-
 var _ Type = &Method{}
 
 type Method struct {
@@ -21,13 +19,6 @@ func (m *Method) hash(prev map[*Definition]bool) string {
 	return sum(sum("METHOD") + sum(m.Name) + m.Signature.hash(prev))
 }
 
-const methodTmpl = "(%s)%s-%s"
-
 func (m *Method) String() string {
-	return fmt.Sprintf(
-		methodTmpl,
-		m.Receiver,
-		m.Name,
-		m.Signature,
-	)
+	return stringify(m)
 }

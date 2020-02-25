@@ -1,10 +1,5 @@
 package types
 
-import (
-	"fmt"
-	"strings"
-)
-
 var _ Type = &Function{}
 
 type (
@@ -34,23 +29,6 @@ func (f *Function) hash(prev map[*Definition]bool) string {
 	return sum(s)
 }
 
-const funcTmpl = "func(%s)(%s)"
-
 func (f *Function) String() string {
-	args := make([]string, len(f.Args))
-	results := make([]string, len(f.Results))
-
-	for i, arg := range f.Args {
-		args[i] = arg.Type.String()
-	}
-
-	for i, result := range f.Results {
-		results[i] = result.Type.String()
-	}
-
-	return fmt.Sprintf(
-		funcTmpl,
-		strings.Join(args, ","),
-		strings.Join(results, ","),
-	)
+	return stringify(f)
 }

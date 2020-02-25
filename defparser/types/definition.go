@@ -1,7 +1,5 @@
 package types
 
-import "fmt"
-
 var (
 	_ Type     = &Definition{}
 	_ Selector = &Definition{}
@@ -71,16 +69,6 @@ func (d *Definition) hash(prev map[*Definition]bool) string {
 	)
 }
 
-const (
-	defInterfaceTmpl = "type %s"
-	defTmpl          = "%s.type %s %s"
-)
-
 func (d *Definition) String() string {
-	return fmt.Sprintf(
-		defTmpl,
-		d.Package,
-		d.Name,
-		d.Declaration,
-	)
+	return stringify(d)
 }
