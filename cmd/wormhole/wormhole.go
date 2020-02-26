@@ -10,7 +10,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser"
-	"github.com/themakers/wormhole/defparser/types"
 )
 
 func PWD() string {
@@ -43,32 +42,32 @@ func parse(wd string) *defparser.Result {
 		}
 	}
 
-	func() {
-		f, err := os.Create("debug.log")
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		logger := log.New(f, "", 0)
+	// func() {
+	// 	f, err := os.Create("debug.log")
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	defer f.Close()
+	// 	logger := log.New(f, "", 0)
 
-		log := func(v interface{}) {
-			ts := v.([]types.Type)
-			for _, t := range ts {
-				logger.Printf(
-					"====\n%s\n%s\n====\n\n",
-					t.Hash(),
-					t,
-				)
-			}
-			logger.Print("##############\n\n")
-		}
+	// 	log := func(v interface{}) {
+	// 		ts := v.([]types.Type)
+	// 		for _, t := range ts {
+	// 			logger.Printf(
+	// 				"====\n%s\n%s\n====\n\n",
+	// 				t.Hash(),
+	// 				t,
+	// 			)
+	// 		}
+	// 		logger.Print("##############\n\n")
+	// 	}
 
-		log(res.Packages)
-		log(res.STDPackages)
-		log(res.Definitions)
-		log(res.STDDefinitions)
-		log(res.Methods)
-	}()
+	// 	log(res.Packages)
+	// 	log(res.STDPackages)
+	// 	log(res.Definitions)
+	// 	log(res.STDDefinitions)
+	// 	log(res.Methods)
+	// }()
 
 	// spew.Dump(res.Packages[0].Info.PkgPath)
 

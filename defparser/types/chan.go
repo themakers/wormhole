@@ -7,10 +7,10 @@ type Chan struct {
 }
 
 func (c *Chan) Hash() string {
-	return c.hash(map[*Definition]bool{})
+	return c.hash(map[Type]bool{})
 }
 
-func (c *Chan) hash(prev map[*Definition]bool) string {
+func (c *Chan) hash(prev map[Type]bool) string {
 	return sum(sum("CHAN") + c.Type.hash(prev))
 }
 

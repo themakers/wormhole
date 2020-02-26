@@ -24,7 +24,7 @@ func (b Builtin) Hash() string {
 	return b.hash(nil)
 }
 
-func (b Builtin) hash(_ map[*Definition]bool) string {
+func (b Builtin) hash(_ map[Type]bool) string {
 	return sum(sum("BUILTIN") + sum(b.String()))
 }
 

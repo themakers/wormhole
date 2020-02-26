@@ -7,10 +7,10 @@ type Pointer struct {
 }
 
 func (p *Pointer) Hash() string {
-	return p.hash(map[*Definition]bool{})
+	return p.hash(map[Type]bool{})
 }
 
-func (p *Pointer) hash(prev map[*Definition]bool) string {
+func (p *Pointer) hash(prev map[Type]bool) string {
 	return sum(sum("POINTER") + p.Type.hash(prev))
 }
 

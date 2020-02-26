@@ -53,10 +53,10 @@ func (d *Definition) Select(name string) (Type, error) {
 }
 
 func (d *Definition) Hash() string {
-	return d.hash(map[*Definition]bool{})
+	return d.hash(map[Type]bool{})
 }
 
-func (d *Definition) hash(prev map[*Definition]bool) string {
+func (d *Definition) hash(prev map[Type]bool) string {
 	if d.Std == true {
 		return sum(sum("DEF") +
 			sum("STD") +

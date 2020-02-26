@@ -8,10 +8,10 @@ type Array struct {
 }
 
 func (a *Array) Hash() string {
-	return a.hash(map[*Definition]bool{})
+	return a.hash(map[Type]bool{})
 }
 
-func (a *Array) hash(prev map[*Definition]bool) string {
+func (a *Array) hash(prev map[Type]bool) string {
 	return sum(sum("ARRAY") + sum(string(a.Len)) + a.Type.hash(prev))
 }
 

@@ -266,11 +266,10 @@ func (tr *typeRegister) definitionRef(
 				return s, nil
 			}
 			def := &types.Definition{
-				Std:         true,
-				Exported:    true,
-				Package:     pkg,
-				Name:        name,
-				Declaration: types.Untyped,
+				Std:      true,
+				Exported: true,
+				Package:  pkg,
+				Name:     name,
 			}
 			tr.global.stdDefinitions[stdDefKey] = def
 			return def, nil

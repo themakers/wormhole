@@ -1,9 +1,27 @@
 package messenger
 
+import "context"
+
 type T1 struct {
+	a  int `a:"a"`
+	b  uint
+	s  string
+	t2 T2
+}
+
+type T2 struct {
 	a int
 	b uint
 	s string
+	i interface {
+		A() T2
+		B() struct {
+			a int
+			context.Context
+			b bool
+		}
+		C()
+	}
 }
 
 // type T0 interface {

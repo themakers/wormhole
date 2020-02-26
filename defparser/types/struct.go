@@ -41,10 +41,10 @@ func (s *Struct) Select(name string) (Type, error) {
 }
 
 func (s *Struct) Hash() string {
-	return s.hash(map[*Definition]bool{})
+	return s.hash(map[Type]bool{})
 }
 
-func (s *Struct) hash(prev map[*Definition]bool) string {
+func (s *Struct) hash(prev map[Type]bool) string {
 	res := sum("STRUCT")
 	for _, field := range s.Fields {
 		res += sum(field.Name) + field.Type.hash(prev) + sum(field.Tag)

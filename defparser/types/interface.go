@@ -24,13 +24,13 @@ func (i *Interface) Select(name string) (Type, error) {
 }
 
 func (i *Interface) Hash() string {
-	return i.hash(map[*Definition]bool{})
+	return i.hash(map[Type]bool{})
 }
 
-func (i *Interface) hash(prev map[*Definition]bool) string {
+func (i *Interface) hash(prev map[Type]bool) string {
 	s := sum("INTERFACE")
 	for _, meth := range i.Methods {
-		s += meth.hash(prev)
+		s += sum(meth.Name) + meth.Signature.hash(prev)
 	}
 	return sum(s)
 }

@@ -13,9 +13,6 @@ func stringify(t Type) string {
 
 	do = func(t Type) string {
 		switch n := t.(type) {
-		case untyped:
-			return "<untyped>"
-
 		case *Array:
 			return fmt.Sprintf(
 				"[%d]%s",
@@ -121,18 +118,34 @@ func stringify(t Type) string {
 			fields := make([]string, len(n.Fields))
 			for i, field := range n.Fields {
 				if field.Embedded {
-					fields[i] = fmt.Sprintf(
-						"%s `%s`",
-						do(field.Type),
-						field.Tag,
-					)
+					if field.Tag == "" {
+						fields[i] = fmt.Sprintf(
+							"%s",
+							do(field.Type),
+						)
+
+					} else {
+						fields[i] = fmt.Sprintf(
+							"%s %s",
+							do(field.Type),
+							field.Tag,
+						)
+					}
 				} else {
-					fields[i] = fmt.Sprintf(
-						"%s %s `%s`",
-						field.Name,
-						do(field.Type),
-						field.Tag,
-					)
+					if field.Tag == "" {
+						fields[i] = fmt.Sprintf(
+							"%s %s",
+							field.Name,
+							do(field.Type),
+						)
+					} else {
+						fields[i] = fmt.Sprintf(
+							"%s %s %s",
+							field.Name,
+							do(field.Type),
+							field.Tag,
+						)
+					}
 				}
 			}
 

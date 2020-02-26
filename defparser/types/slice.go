@@ -7,10 +7,10 @@ type Slice struct {
 }
 
 func (s *Slice) Hash() string {
-	return s.hash(map[*Definition]bool{})
+	return s.hash(map[Type]bool{})
 }
 
-func (s *Slice) hash(prev map[*Definition]bool) string {
+func (s *Slice) hash(prev map[Type]bool) string {
 	return sum(sum("SLICE") + s.Type.hash(prev))
 }
 

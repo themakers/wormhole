@@ -18,10 +18,10 @@ type (
 )
 
 func (f *Function) Hash() string {
-	return f.hash(map[*Definition]bool{})
+	return f.hash(map[Type]bool{})
 }
 
-func (f *Function) hash(prev map[*Definition]bool) string {
+func (f *Function) hash(prev map[Type]bool) string {
 	s := sum("FUNC")
 	for _, arg := range f.Args {
 		s += arg.Type.hash(prev)

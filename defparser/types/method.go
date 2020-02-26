@@ -12,10 +12,10 @@ type Method struct {
 }
 
 func (m *Method) Hash() string {
-	return m.hash(map[*Definition]bool{})
+	return m.hash(map[Type]bool{})
 }
 
-func (m *Method) hash(prev map[*Definition]bool) string {
+func (m *Method) hash(prev map[Type]bool) string {
 	return sum(sum("METHOD") +
 		sum(m.Name) +
 		m.Receiver.hash(prev) +
