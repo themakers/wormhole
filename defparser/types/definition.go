@@ -57,7 +57,15 @@ func (d *Definition) Hash() string {
 }
 
 func (d *Definition) hash(prev map[*Definition]bool) string {
-	if prev[d] {
+	if d.Std == true {
+		return sum(sum("DEF") +
+			sum("STD") +
+			d.Package.hash(prev) +
+			sum(d.Name),
+		)
+	}
+
+	if prev[d] || d.Declaration == nil {
 		return sum(sum("DEF") + d.Package.hash(prev) + sum(d.Name))
 	}
 

@@ -27,11 +27,29 @@ type (
 )
 
 func (p *Package) Hash() string {
-	return p.hash(map[*Definition]bool{})
+	return p.hash(nil)
 }
 
 func (p *Package) hash(_ map[*Definition]bool) string {
-	return sum(sum("PACKAGE") + sum(p.Info.PkgPath))
+	if p.Info.Std {
+		return sum(sum("PACKAGE") + sum("STD") + sum(p.Info.PkgPath))
+	}
+
+	s := sum("PACKAGE") + sum(p.Info.PkgPath)
+
+	for _, imp := range p.Imports {
+		s += imp.Package.Hash()
+	}
+
+	for _, def := range p.Definitions {
+		s += def.Hash()
+	}
+
+	for _, meth := range p.Methods {
+		s += meth.Hash()
+	}
+
+	return sum(s)
 }
 
 func (p *Package) String() string {
