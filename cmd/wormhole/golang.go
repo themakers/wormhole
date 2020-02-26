@@ -1,10 +1,8 @@
 package main
 
-import (
-	"github.com/themakers/wormhole/wormparse"
-)
+import "github.com/themakers/wormhole/defparser"
 
-func Render(pkg *wormparse.Package) string {
+func Render(pkg *defparser.Result) string {
 
 	// model := struct {
 	// 	Pkg  string

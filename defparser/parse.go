@@ -21,7 +21,7 @@ func Parse(pkgPath string) (*Result, error) {
 
 	do = func(pkgFullPath, pkgPath string, prev map[string]int) (*types.Package, error) {
 		var (
-			pkgTC *typeRegister
+			pkgTR *typeRegister
 			pkg   *types.Package
 		)
 
@@ -160,14 +160,14 @@ func Parse(pkgPath string) (*Result, error) {
 				i++
 			}
 
-			pkgTC = tr.newPackage(info, imports)
+			pkgTR = tr.newPackage(info, imports)
 		}
 
 		err = aggregateDefinitions(
-			pkgTC,
+			pkgTR,
 			pkgs[pkgName],
 		)
-		return pkgTC.pkg, err
+		return pkgTR.pkg, err
 	}
 
 	pkg, err := do(

@@ -11,7 +11,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/themakers/wormhole/defparser"
 	"github.com/themakers/wormhole/defparser/types"
-	"github.com/themakers/wormhole/wormparse"
 )
 
 func PWD() string {
@@ -22,7 +21,7 @@ func PWD() string {
 	return pwd
 }
 
-func parse(wd string) *wormparse.Package {
+func parse(wd string) *defparser.Result {
 	files := listSourceFiles(wd)
 	log.Println(files)
 
@@ -36,7 +35,7 @@ func parse(wd string) *wormparse.Package {
 	res, err := defparser.Parse(wd)
 	if err != nil {
 		switch v := err.(type) {
-		case wormparse.Loop:
+		case defparser.Loop:
 			fmt.Println("LOOP")
 			spew.Dump(v)
 		default:

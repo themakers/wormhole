@@ -1,9 +1,10 @@
 package messenger
 
-import (
-	"github.com/themakers/wormhole/tests/messenger/message"
-	"github.com/themakers/wormhole/tests/messenger/user"
-)
+type T1 struct {
+	a int
+	b uint
+	s string
+}
 
 // type T0 interface {
 // 	A() T1
@@ -18,45 +19,45 @@ import (
 // 	B string
 // }
 
-type I interface {
-	A(T0) T1
-	B(T1) T0
-	С(*chan struct{ T0 }) [5]struct {
-		user.User
-		OLOLO user.TROLOLO
-	}
-	F() func() (error, struct {
-		i T0
-	})
-}
+// type I interface {
+// 	A(T0) T1
+// 	B(T1) T0
+// 	С(*chan struct{ T0 }) [5]struct {
+// 		user.User
+// 		OLOLO user.TROLOLO
+// 	}
+// 	F() func() (error, struct {
+// 		i T0
+// 	})
+// }
 
-func F(m message.Message) *struct {
-	a string
-	I
-} {
-	return nil
-}
+// func F(m message.Message) *struct {
+// 	a string
+// 	I
+// } {
+// 	return nil
+// }
 
-type T0 struct {
-	a int
-	b uint
-}
+// type T0 struct {
+// 	a int
+// 	b uint
+// }
 
-type T1 struct {
-	d int
-	s struct {
-		u user.User
-		b int
-	}
-	i interface {
-		A(bool, T0) int
-		B()
-	}
-	dup struct {
-		a int
-		b uint
-	}
-}
+// type T1 struct {
+// 	d int
+// 	s struct {
+// 		u user.User
+// 		b int
+// 	}
+// 	i interface {
+// 		A(bool, T0) int
+// 		B()
+// 	}
+// 	dup struct {
+// 		a int
+// 		b uint
+// 	}
+// }
 
 //go:generate sh -c "go install github.com/themakers/wormhole/cmd/wormhole && wormhole go"
 

@@ -16,7 +16,11 @@ func (m *Method) Hash() string {
 }
 
 func (m *Method) hash(prev map[*Definition]bool) string {
-	return sum(sum("METHOD") + sum(m.Name) + m.Signature.hash(prev))
+	return sum(sum("METHOD") +
+		sum(m.Name) +
+		m.Receiver.hash(prev) +
+		m.Signature.hash(prev),
+	)
 }
 
 func (m *Method) String() string {

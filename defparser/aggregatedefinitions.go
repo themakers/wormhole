@@ -9,50 +9,46 @@ import (
 	"github.com/themakers/wormhole/defparser/types"
 )
 
-func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
+func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 	var (
-		parse           func(node ast.Node) error
-		typeDef         func(d *ast.TypeSpec) (func() error, error)
-		funcDef         func(dec *ast.FuncDecl) (func() error, error)
-		methodDef       func(dec *ast.FuncDecl) (func() error, error)
-		isIgnorable     func(node ast.Node) bool
-		funcSignature   func(node *ast.FuncType) (*types.Function, error)
-		typeDeclaration func(ast.Node) (types.Type, error)
+		do func(ast.Node) error
 
-		fileName    string
-		definitions []func() error
+		typeDef   func(*ast.TypeSpec) (func() error, error)
+		funcDef   func(*ast.FuncDecl) (func() error, error)
+		methodDef func(*ast.FuncDecl) func() error
+
+		typeDec       func(ast.Node) (types.Type, error)
+		funcSignature func(*ast.FuncType) (*types.Function, error)
+		identifier    func(ast.Node) (*types.Definition, error)
+		isIgnorable   func(ast.Node) bool
+
+		fileName  string
+		callbacks []func() error
 	)
 
-	parse = func(node ast.Node) error {
+	do = func(node ast.Node) error {
 		switch n := node.(type) {
 		case *ast.GenDecl:
 			for _, spec := range n.Specs {
-				if err := parse(spec); err != nil {
+				if err := do(spec); err != nil {
 					return err
 				}
 			}
+			return nil
 
 		case *ast.TypeSpec:
-			closure, err := typeDef(n)
-			if err != nil {
-				return err
-			}
-			definitions = append(definitions, closure)
+			clbk, err := typeDef(n)
+			callbacks = append([]func() error{clbk}, callbacks...)
+			return err
 
 		case *ast.FuncDecl:
 			if n.Recv == nil {
-				closure, err := funcDef(n)
-				if err != nil {
-					return err
-				}
-				definitions = append(definitions, closure)
-			} else {
-				closure, err := methodDef(n)
-				if err != nil {
-					return err
-				}
-				definitions = append(definitions, closure)
+				clbk, err := funcDef(n)
+				callbacks = append([]func() error{clbk}, callbacks...)
+				return err
 			}
+			callbacks = append([]func() error{methodDef(n)}, callbacks...)
+			return nil
 
 		default:
 			if isIgnorable(node) {
@@ -65,135 +61,72 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 				spew.Sdump(n),
 			)
 		}
-
-		return nil
 	}
 
 	typeDef = func(d *ast.TypeSpec) (func() error, error) {
-		t, err := typeDeclaration(d.Type)
-		if err != nil {
-			return nil, err
-		}
-
+		def, err := tr.define(d.Name.Name)
 		return func() error {
-			_, err = tc.def(d.Name.Name, t)
+			def.Declaration, err = typeDec(d.Type)
 			return err
-		}, nil
+		}, err
 	}
 
 	funcDef = func(dec *ast.FuncDecl) (func() error, error) {
-		t, err := funcSignature(dec.Type)
-		if err != nil {
-			return nil, err
-		}
-
+		def, err := tr.define(dec.Name.Name)
 		return func() error {
-			_, err = tc.def(dec.Name.Name, t)
+			def.Declaration, err = funcSignature(dec.Type)
 			return err
-		}, nil
+		}, err
 	}
 
-	methodDef = func(dec *ast.FuncDecl) (func() error, error) {
-		t, err := typeDeclaration(dec.Recv.List[0].Type)
-		if err != nil {
-			return nil, err
-		}
-		f, err := funcSignature(dec.Type)
-		if err != nil {
-			return nil, err
-		}
-
+	methodDef = func(dec *ast.FuncDecl) func() error {
 		return func() error {
-			_, err = tc.def(dec.Name.Name, tc.method(dec.Name.Name, t, f))
-			return err
-		}, nil
-	}
-
-	isIgnorable = func(node ast.Node) bool {
-		switch node.(type) {
-		case *ast.ImportSpec:
-		case *ast.CommentGroup:
-		case *ast.Comment:
-		default:
-			return false
-		}
-		return true
-	}
-
-	funcSignature = func(node *ast.FuncType) (*types.Function, error) {
-		var args []types.NameTypePair
-		for _, param := range node.Params.List {
-			var n string
-			if len(param.Names) > 0 {
-				n = param.Names[0].Name
-			}
-			v, err := typeDeclaration(param.Type)
+			r, err := identifier(dec.Recv.List[0].Type)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			args = append(args, types.NameTypePair{
-				Name: n,
-				Type: v,
-			})
-		}
-
-		if node.Results == nil {
-			return tc.implFunc(args, nil), nil
-		}
-
-		var results []types.NameTypePair
-		for _, res := range node.Results.List {
-			var n string
-			if len(res.Names) > 0 {
-				n = res.Names[0].Name
-			}
-			v, err := typeDeclaration(res.Type)
+			f, err := funcSignature(dec.Type)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			results = append(results, types.NameTypePair{
-				Name: n,
-				Type: v,
-			})
+			return tr.method(dec.Name.Name, r, f)
 		}
-
-		return tc.implFunc(args, results), nil
 	}
 
-	typeDeclaration = func(node ast.Node) (types.Type, error) {
+	typeDec = func(node ast.Node) (types.Type, error) {
 		switch n := node.(type) {
 		case *ast.MapType:
-			k, err := typeDeclaration(n.Key)
+			k, err := typeDec(n.Key)
 			if err != nil {
 				return nil, err
 			}
-			v, err := typeDeclaration(n.Value)
+			v, err := typeDec(n.Value)
 			if err != nil {
 				return nil, err
 			}
 
-			return tc.implMap(k, v), nil
+			return tr.implMap(k, v), nil
 
 		case *ast.ArrayType:
-			t, err := typeDeclaration(n.Elt)
+			t, err := typeDec(n.Elt)
 			if err != nil {
 				return nil, err
 			}
 
 			if n.Len == nil {
-				return tc.implSlice(t), nil
+				return tr.implSlice(t), nil
 			}
 
 			l, err := strconv.Atoi(n.Len.(*ast.BasicLit).Value)
 			if err != nil {
 				return nil, err
 			}
-			return tc.implArray(l, t), nil
+			return tr.implArray(l, t), nil
 
 		case *ast.StructType:
-			fields := make([]types.StructField, len(n.Fields.List))
+			fields := make([]*types.StructField, len(n.Fields.List))
 			for i, field := range n.Fields.List {
-				t, err := typeDeclaration(field.Type)
+				t, err := typeDec(field.Type)
 				if err != nil {
 					return nil, err
 				}
@@ -211,13 +144,10 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 					name = def.Name
 				}
 
-				fields[i] = types.StructField{
-					Name: name,
-					Tag:  tag,
-					Type: t,
-				}
+				fields[i] = tr.mkStructField(name, tag, t)
 			}
-			return tc.implStruct(fields), nil
+
+			return tr.implStruct(fields), nil
 
 		case *ast.FuncType:
 			return funcSignature(n)
@@ -229,9 +159,15 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 				if err != nil {
 					return nil, err
 				}
-				meths[i] = tc.method(field.Names[0].Name, types.Untyped, f)
+				meths[i], err = tr.implMethod(
+					field.Names[0].Name,
+					f,
+				)
+				if err != nil {
+					return nil, err
+				}
 			}
-			return tc.implInter(meths), nil
+			return tr.implInter(meths), nil
 
 		case *ast.Field:
 			ident, ok := n.Type.(*ast.Ident)
@@ -248,40 +184,30 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 				t   types.Type
 				err error
 			)
-			t, err = tc.regBuiltin(n.Name)
+			t, err = tr.regBuiltin(n.Name)
 			if err != nil {
-				t, err = tc.defRef(n.Name, "")
-				if err != nil {
-					return nil, fmt.Errorf(
-						"Failed to parse %s :: %s",
-						spew.Sdump(n),
-						err,
-					)
-				}
+				return identifier(n)
 			}
 			return t, nil
 
 		case *ast.SelectorExpr:
-			return tc.defRef(
-				n.Sel.Name,
-				n.X.(*ast.Ident).Name,
-			)
+			return identifier(n)
 
 		case *ast.StarExpr:
-			t, err := typeDeclaration(n.X)
+			t, err := typeDec(n.X)
 			if err != nil {
 				return nil, err
 			}
-			return tc.implPtr(t), nil
+			return tr.implPtr(t), nil
 
 		case *ast.ChanType:
-			t, err := typeDeclaration(
+			t, err := typeDec(
 				n.Value,
 			)
 			if err != nil {
 				return nil, err
 			}
-			return tc.implChan(t), nil
+			return tr.implChan(t), nil
 
 		default:
 			return nil, fmt.Errorf(
@@ -291,27 +217,85 @@ func aggregateDefinitions(tc *typeRegister, pkg *ast.Package) error {
 		}
 	}
 
+	funcSignature = func(node *ast.FuncType) (*types.Function, error) {
+		args := make([]*types.NameTypePair, len(node.Params.List))
+		for i, param := range node.Params.List {
+			var n string
+			if len(param.Names) > 0 {
+				n = param.Names[0].Name
+			}
+			t, err := typeDec(param.Type)
+			if err != nil {
+				return nil, err
+			}
+			args[i] = tr.mkNameTypePair(n, t)
+		}
+
+		if node.Results == nil {
+			return tr.implFunc(args, nil), nil
+		}
+
+		results := make([]*types.NameTypePair, len(node.Results.List))
+		for i, res := range node.Results.List {
+			var n string
+			if len(res.Names) > 0 {
+				n = res.Names[0].Name
+			}
+			t, err := typeDec(res.Type)
+			if err != nil {
+				return nil, err
+			}
+			results[i] = tr.mkNameTypePair(n, t)
+		}
+
+		return tr.implFunc(args, results), nil
+	}
+
+	identifier = func(node ast.Node) (*types.Definition, error) {
+		switch n := node.(type) {
+		case *ast.SelectorExpr:
+			return tr.definitionRef(
+				n.Sel.Name,
+				n.X.(*ast.Ident).Name,
+			)
+
+		case *ast.Ident:
+			return tr.definitionRef(n.Name, "")
+
+		default:
+			return nil, fmt.Errorf(
+				"Can't parse identifier: %s",
+				spew.Sdump(node),
+			)
+		}
+	}
+
+	isIgnorable = func(node ast.Node) bool {
+		switch node.(type) {
+		case *ast.ImportSpec:
+		case *ast.CommentGroup:
+		case *ast.Comment:
+		default:
+			return false
+		}
+		return true
+	}
+
 	for _, file := range pkg.Files {
 		fileName = file.Name.Name
 		for _, decl := range file.Decls {
-			if err := parse(decl); err != nil {
+			if err := do(decl); err != nil {
 				return err
 			}
 		}
 	}
 
-	for _, closure := range definitions {
-		if err := closure(); err != nil {
+	for len(callbacks) > 0 {
+		clbk := callbacks[0]
+		callbacks = callbacks[1:]
+		if err := clbk(); err != nil {
 			return err
 		}
-	}
-
-	for name := range tc.undefinedIdentifiers {
-		return fmt.Errorf(
-			"Undefined identifier \"%s\" in package %s",
-			name,
-			tc.pkg.Info.PkgPath,
-		)
 	}
 
 	return nil
