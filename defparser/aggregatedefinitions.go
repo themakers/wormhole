@@ -1,6 +1,7 @@
 package defparser
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"strconv"
@@ -136,15 +137,26 @@ func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 					tag = field.Tag.Value
 				}
 
-				var name string
 				if len(field.Names) == 1 {
-					name = field.Names[0].Name
+					fields[i] = tr.mkStructField(
+						field.Names[0].Name,
+						tag,
+						t,
+					)
+				} else if len(field.Names) == 0 {
+					if def, ok := t.(*types.Definition); ok {
+						fields[i] = tr.mkEmbeddedStructField(
+							tag,
+							def,
+						)
+					}
+					return nil, fmt.Errorf(
+						"cannot use type %s as embedded",
+						t,
+					)
 				} else {
-					def := t.(*types.Definition)
-					name = def.Name
+					return nil, errors.New("Unable to parse struct field")
 				}
-
-				fields[i] = tr.mkStructField(name, tag, t)
 			}
 
 			return tr.implStruct(fields), nil
@@ -293,7 +305,9 @@ func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 	for len(callbacks) > 0 {
 		clbk := callbacks[0]
 		callbacks = callbacks[1:]
-		if err := clbk(); err != nil {
+		if err := clbk(); err == errClbkRetry {
+			callbacks = append(callbacks, clbk)
+		} else if err != nil {
 			return err
 		}
 	}

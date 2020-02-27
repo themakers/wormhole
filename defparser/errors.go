@@ -32,3 +32,7 @@ func (l Loop) Error() string {
 		l,
 	)
 }
+
+var (
+	errClbkRetry = errors.New("clbkRetry")
+)

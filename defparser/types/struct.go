@@ -15,7 +15,11 @@ type Struct struct {
 
 	// All fields that considered embedded.
 	// Struct.Fields includes Struct.Embedded.
-	Embedded []Selector
+	Embedded map[string]Selector
+
+	// Non-ambigious fields and methods, that are available
+	// through embedded fields
+	EmbeddedComponents EmbeddedComponents
 }
 
 func (s *Struct) Select(name string) (Type, error) {
@@ -48,6 +52,9 @@ func (s *Struct) hash(prev map[Type]bool) string {
 	res := sum("STRUCT")
 	for _, field := range s.Fields {
 		res += sum(field.Name) + field.Type.hash(prev) + sum(field.Tag)
+		if field.Embedded {
+			res += "EMBEDDED"
+		}
 	}
 	return sum(res)
 }
@@ -58,10 +65,19 @@ func (s *Struct) String() string {
 
 type (
 	StructField struct {
-		Name     string
-		Tag      string
-		Exported bool
-		Embedded bool
-		Type     Type
+		Name         string
+		Tag          string
+		Exported     bool
+		Embedded     bool
+		Type         Type
+		ParentStruct *Struct
+	}
+
+	EmbeddedComponents struct {
+		Fields    []*StructField
+		FieldsMap map[string]*StructField
+
+		Methods    []*Method
+		MethodsMap map[string]*Method
 	}
 )

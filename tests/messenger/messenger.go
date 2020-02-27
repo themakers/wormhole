@@ -3,10 +3,10 @@ package messenger
 import "context"
 
 type T1 struct {
-	a  int `a:"a"`
-	b  uint
-	s  string
-	t2 T2
+	a int `a:"a"`
+	b uint
+	s string
+	T2
 }
 
 type T2 struct {

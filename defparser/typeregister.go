@@ -337,19 +337,30 @@ func (tr *typeRegister) implMethod(
 	}, nil
 }
 
-func (tr *typeRegister) mkStructField(
+func (*typeRegister) mkStructField(
 	name,
 	tag string,
 	t types.Type,
 ) *types.StructField {
-	field := &types.StructField{
+	return &types.StructField{
 		Name:     name,
 		Tag:      tag,
 		Exported: isExported(name),
 		Type:     t,
 	}
+}
 
-	return field
+func (*typeRegister) mkEmbeddedStructField(
+	tag string,
+	def *types.Definition,
+) *types.StructField {
+	return &types.StructField{
+		Name:     def.Name,
+		Tag:      tag,
+		Exported: isExported(def.Name),
+		Type:     def,
+		Embedded: true,
+	}
 }
 
 func (tr *typeRegister) mkNameTypePair(
@@ -376,15 +387,130 @@ func (tr *typeRegister) implPtr(t types.Type) *types.Pointer {
 	}).(*types.Pointer)
 }
 
-func (tr *typeRegister) implStruct(fields []*types.StructField) *types.Struct {
-	fieldsMap := make(map[string]*types.StructField)
+func (tr *typeRegister) implStruct(
+	fields []*types.StructField,
+) (*types.Struct, func() error) {
+	var (
+		embedded  = make(map[string]types.Selector)
+		fieldsMap = make(map[string]*types.StructField)
+	)
 	for _, field := range fields {
 		fieldsMap[field.Name] = field
+		if field.Embedded {
+			embedded[field.Name] = field.Type.(types.Selector)
+		}
 	}
-	return tr.checkImplicit(&types.Struct{
+
+	var (
+		f bool
+		s = &types.Struct{
+			Fields:    fields,
+			FieldsMap: fieldsMap,
+			Embedded:  embedded,
+		}
+	)
+
+	if c := tr.checkImplicit(&types.Struct{
 		Fields:    fields,
 		FieldsMap: fieldsMap,
-	}).(*types.Struct)
+		Embedded:  embedded,
+	}).(*types.Struct); c == s {
+		for _, field := range s.Fields {
+			field.ParentStruct = s
+		}
+	} else {
+		s = c
+	}
+
+	return s, func() error {
+		var (
+			fields     []*types.StructField
+			fieldsMap  = map[string]*types.StructField{}
+			methods    []*types.Method
+			methodsMap = map[string]*types.Method{}
+
+			ambigious = map[string]bool{}
+			after     []func()
+		)
+
+		for _, e := range embedded {
+			def, ok := e.(*types.Definition)
+			if !ok {
+				return fmt.Errorf(
+					"non-definition type %s was used as field type in %s",
+					e,
+					s,
+				)
+			}
+
+			for _, meth := range def.Methods {
+				if _, ok := ambigious[meth.Name]; ok {
+					ambigious[meth.Name] = true
+				} else {
+					ambigious[meth.Name] = false
+					after = append(after, func() {
+						if !ambigious[meth.Name] {
+							methods = append(methods, meth)
+							methodsMap[meth.Name] = meth
+						}
+					})
+				}
+			}
+
+		}
+		for _, f := range after {
+			f()
+		}
+		after = nil
+		ambigious = map[string]bool{}
+
+		for _, e := range embedded {
+			var (
+				def            = e.(*types.Definition)
+				t   types.Type = def
+			)
+			for ok := true; ok; def, ok = t.(*types.Definition) {
+				if def.Declaration == nil {
+					return errClbkRetry
+				}
+				t = def.Declaration
+			}
+
+			switch v := t.(type) {
+			case *types.Interface:
+				for name, meth := range v.MethodsMap {
+					if _, ok := methodsMap[name]; ok {
+						continue
+					}
+
+					if _, ok := ambigious[name]; ok {
+						ambigious[name] = true
+					} else {
+						ambigious[name] = false
+						after = append(after, func() {
+							if !ambigious[name] {
+								methods = append(methods, meth)
+								methodsMap[name] = meth
+							}
+						})
+					}
+				}
+
+			case *types.Struct:
+				for _, field := range v.Fields {
+					if _, ok := s.FieldsMap[field.Name]; ok {
+						continue
+					}
+				}
+			}
+		}
+
+		for _, f := range after {
+			f()
+		}
+
+		return nil
+	}
 }
 
 func (tr *typeRegister) implInter(methods []*types.Method) *types.Interface {
