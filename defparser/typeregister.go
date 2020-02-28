@@ -2,6 +2,7 @@ package defparser
 
 import (
 	"fmt"
+	"sort"
 	"unicode"
 
 	"github.com/davecgh/go-spew/spew"
@@ -402,121 +403,197 @@ func (tr *typeRegister) implStruct(
 	}
 
 	var (
-		f bool
-		s = &types.Struct{
+		tried bool
+		s     = &types.Struct{
 			Fields:    fields,
 			FieldsMap: fieldsMap,
 			Embedded:  embedded,
 		}
 	)
 
-	if c := tr.checkImplicit(&types.Struct{
-		Fields:    fields,
-		FieldsMap: fieldsMap,
-		Embedded:  embedded,
-	}).(*types.Struct); c == s {
-		for _, field := range s.Fields {
-			field.ParentStruct = s
-		}
-	} else {
-		s = c
+	if c := tr.checkImplicit(s).(*types.Struct); c != s {
+		return c, nil
+	}
+
+	for _, field := range s.Fields {
+		field.ParentStruct = s
 	}
 
 	return s, func() error {
-		var (
-			fields     []*types.StructField
-			fieldsMap  = map[string]*types.StructField{}
-			methods    []*types.Method
-			methodsMap = map[string]*types.Method{}
+		type setElem struct {
+			ambigious bool
+			field     *types.StructField
+			method    *types.Method
+		}
 
-			ambigious = map[string]bool{}
-			after     []func()
+		var (
+			do func(types.Type, int) error
+			m  = []map[string]setElem{}
 		)
 
-		for _, e := range embedded {
-			def, ok := e.(*types.Definition)
-			if !ok {
-				return fmt.Errorf(
-					"non-definition type %s was used as field type in %s",
-					e,
-					s,
-				)
+		do = func(n types.Type, lvl int) error {
+			var set map[string]setElem
+			if len(m) < lvl+1 {
+				set = map[string]setElem{}
+				m = append(m, set)
+			} else {
+				set = m[lvl]
 			}
 
-			for _, meth := range def.Methods {
-				if _, ok := ambigious[meth.Name]; ok {
-					ambigious[meth.Name] = true
-				} else {
-					ambigious[meth.Name] = false
-					after = append(after, func() {
-						if !ambigious[meth.Name] {
-							methods = append(methods, meth)
-							methodsMap[meth.Name] = meth
-						}
-					})
+			switch t := n.(type) {
+			case *types.Definition:
+				if t.Std {
+					return nil
 				}
-			}
 
-		}
-		for _, f := range after {
-			f()
-		}
-		after = nil
-		ambigious = map[string]bool{}
-
-		for _, e := range embedded {
-			var (
-				def            = e.(*types.Definition)
-				t   types.Type = def
-			)
-			for ok := true; ok; def, ok = t.(*types.Definition) {
-				if def.Declaration == nil {
-					return errClbkRetry
-				}
-				t = def.Declaration
-			}
-
-			switch v := t.(type) {
-			case *types.Interface:
-				for name, meth := range v.MethodsMap {
-					if _, ok := methodsMap[name]; ok {
-						continue
-					}
-
-					if _, ok := ambigious[name]; ok {
-						ambigious[name] = true
+				for _, meth := range t.Methods {
+					_, ok := set[meth.Name]
+					if ok {
+						set[meth.Name] = setElem{ambigious: true}
 					} else {
-						ambigious[name] = false
-						after = append(after, func() {
-							if !ambigious[name] {
-								methods = append(methods, meth)
-								methodsMap[name] = meth
-							}
-						})
+						set[meth.Name] = setElem{
+							method: meth,
+						}
 					}
 				}
+
+				var d types.Type
+				for ok := true; ok; t, ok = d.(*types.Definition) {
+					if t.Declaration == nil {
+						if tried {
+							return fmt.Errorf(
+								"Unable to embed field %s in struct %s",
+								n,
+								s,
+							)
+						}
+						tried = true
+						return errClbkRetry
+					}
+					d = t.Declaration
+				}
+				return do(d, lvl)
 
 			case *types.Struct:
-				for _, field := range v.Fields {
-					if _, ok := s.FieldsMap[field.Name]; ok {
-						continue
+				for _, field := range t.Fields {
+					_, ok := set[field.Name]
+					if ok {
+						set[field.Name] = setElem{ambigious: true}
+					} else {
+						set[field.Name] = setElem{
+							field: field,
+						}
 					}
+					if field.Embedded {
+						if err := do(field.Type, lvl+1); err != nil {
+							return err
+						}
+					}
+				}
+
+			case *types.Interface:
+				for _, meth := range t.Methods {
+					_, ok := set[meth.Name]
+					if ok {
+						set[meth.Name] = setElem{ambigious: true}
+					} else {
+						set[meth.Name] = setElem{
+							method: meth,
+						}
+					}
+				}
+
+			case *types.Pointer:
+				return do(t.Type, lvl)
+			}
+
+			return nil
+		}
+
+		for _, e := range embedded {
+			if err := do(e, 0); err != nil {
+				return err
+			}
+		}
+
+		var (
+			fieldsMap  map[string]*types.StructField
+			methodsMap map[string]*types.Method
+		)
+
+		for _, set := range m {
+			for name, e := range set {
+				if e.ambigious {
+					continue
+				}
+
+				_, f1 := fieldsMap[name]
+				_, f2 := methodsMap[name]
+				if f1 || f2 {
+					continue
+				}
+
+				if e.field != nil {
+					fieldsMap[name] = e.field
+				} else {
+					methodsMap[name] = e.method
 				}
 			}
 		}
 
-		for _, f := range after {
-			f()
+		var (
+			fields  = make([]*types.StructField, len(fieldsMap))
+			methods = make([]*types.Method, len(methodsMap))
+		)
+		{
+			var i int
+			for _, field := range fieldsMap {
+				fields[i] = field
+				i++
+			}
+		}
+		{
+			var i int
+			for _, meth := range methodsMap {
+				methods[i] = meth
+				i++
+			}
+		}
+
+		sort.Slice(fields, func(i, j int) bool {
+			return fields[i].Name < fields[j].Name
+		})
+		sort.Slice(methods, func(i, j int) bool {
+			return methods[i].Name < methods[j].Name
+		})
+
+		s.EmbeddedComponents = types.EmbeddedComponents{
+			Fields:     fields,
+			FieldsMap:  fieldsMap,
+			Methods:    methods,
+			MethodsMap: methodsMap,
 		}
 
 		return nil
 	}
 }
 
-func (tr *typeRegister) implInter(methods []*types.Method) *types.Interface {
-	return tr.checkImplicit(&types.Interface{
+func (tr *typeRegister) implInter(
+	methods []*types.Method,
+) (*types.Interface, func() error) {
+	s := &types.Interface{
 		Methods: methods,
-	}).(*types.Interface)
+	}
+
+	if c := tr.checkImplicit(s).(*types.Interface); c != s {
+		return c, nil
+	}
+
+	return s, func() error {
+		// TODO: embedding
+
+		return nil
+	}
 }
 
 func (tr *typeRegister) implFunc(

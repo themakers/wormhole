@@ -159,7 +159,11 @@ func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 				}
 			}
 
-			return tr.implStruct(fields), nil
+			s, clbk := tr.implStruct(fields)
+			if clbk != nil {
+				callbacks = append(callbacks, clbk)
+			}
+			return s, nil
 
 		case *ast.FuncType:
 			return funcSignature(n)
@@ -179,7 +183,12 @@ func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 					return nil, err
 				}
 			}
-			return tr.implInter(meths), nil
+
+			i, clbk := tr.implInter(meths)
+			if clbk != nil {
+				callbacks = append(callbacks, clbk)
+			}
+			return i, nil
 
 		case *ast.Field:
 			ident, ok := n.Type.(*ast.Ident)
