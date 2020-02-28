@@ -311,7 +311,12 @@ func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 		}
 	}
 
+	// shitty
+	var i int
 	for len(callbacks) > 0 {
+		if i > 10000 {
+			panic("unable to solve types")
+		}
 		clbk := callbacks[0]
 		callbacks = callbacks[1:]
 		if err := clbk(); err == errClbkRetry {
@@ -319,6 +324,7 @@ func aggregateDefinitions(tr *typeRegister, pkg *ast.Package) error {
 		} else if err != nil {
 			return err
 		}
+		i++
 	}
 
 	return nil

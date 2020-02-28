@@ -403,8 +403,7 @@ func (tr *typeRegister) implStruct(
 	}
 
 	var (
-		tried bool
-		s     = &types.Struct{
+		s = &types.Struct{
 			Fields:    fields,
 			FieldsMap: fieldsMap,
 			Embedded:  embedded,
@@ -460,14 +459,6 @@ func (tr *typeRegister) implStruct(
 				var d types.Type
 				for ok := true; ok; t, ok = d.(*types.Definition) {
 					if t.Declaration == nil {
-						if tried {
-							return fmt.Errorf(
-								"Unable to embed field %s in struct %s",
-								n,
-								s,
-							)
-						}
-						tried = true
 						return errClbkRetry
 					}
 					d = t.Declaration

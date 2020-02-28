@@ -6,7 +6,7 @@ type (
 	Package struct {
 		Info           PackageInfo
 		Imports        []Import
-		ImportsMap     map[PackageInfo]Import
+		ImportsMap     map[string]Import
 		Definitions    []*Definition
 		DefinitionsMap map[string]*Definition
 		Methods        []*Method
