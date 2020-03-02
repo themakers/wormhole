@@ -11,15 +11,17 @@ type Method struct {
 	Signature *Function
 }
 
-func (m *Method) Hash() string {
+func (m *Method) Hash() Sum {
 	return m.hash(map[Type]bool{})
 }
 
-func (m *Method) hash(prev map[Type]bool) string {
-	return sum(sum("METHOD") +
-		sum(m.Name) +
-		m.Receiver.hash(prev) +
-		m.Signature.hash(prev),
+func (m *Method) hash(prev map[Type]bool) Sum {
+	r := m.Receiver.hash(prev)
+	s := m.Signature.hash(prev)
+	return sum(
+		[]byte("METHOD"),
+		r[:],
+		s[:],
 	)
 }
 

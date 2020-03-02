@@ -7,12 +7,14 @@ type Map struct {
 	Value Type
 }
 
-func (m *Map) Hash() string {
+func (m *Map) Hash() Sum {
 	return m.hash(map[Type]bool{})
 }
 
-func (m *Map) hash(prev map[Type]bool) string {
-	return sum(sum("MAP") + m.Key.hash(prev) + m.Value.hash(prev))
+func (m *Map) hash(prev map[Type]bool) Sum {
+	k := m.Key.hash(prev)
+	v := m.Value.hash(prev)
+	return sum([]byte("MAP"), k[:], v[:])
 }
 
 func (m *Map) String() string {

@@ -17,19 +17,31 @@ type (
 	}
 )
 
-func (f *Function) Hash() string {
+func (f *Function) Hash() Sum {
 	return f.hash(map[Type]bool{})
 }
 
-func (f *Function) hash(prev map[Type]bool) string {
-	s := sum("FUNC")
+func (f *Function) hash(prev map[Type]bool) Sum {
+	s := make([][]byte, len(f.Args)+len(f.Results)+2)
+	s[0] = []byte("FUNC")
+
+	i := 1
 	for _, arg := range f.Args {
-		s += arg.Type.hash(prev)
+		v := arg.Type.hash(prev)
+		s[i] = v[:]
+		i++
 	}
+
+	s[i] = []byte("RETURNS")
+	i++
+
 	for _, result := range f.Results {
-		s += result.Type.hash(prev)
+		v := result.Type.hash(prev)
+		s[i] = v[:]
+		i++
 	}
-	return sum(s)
+
+	return sum(s...)
 }
 
 func (f *Function) String() string {

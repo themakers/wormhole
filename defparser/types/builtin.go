@@ -20,12 +20,12 @@ const (
 
 type Builtin uint
 
-func (b Builtin) Hash() string {
+func (b Builtin) Hash() Sum {
 	return b.hash(nil)
 }
 
-func (b Builtin) hash(_ map[Type]bool) string {
-	return sum(sum("BUILTIN") + sum(b.String()))
+func (b Builtin) hash(_ map[Type]bool) Sum {
+	return sum([]byte("BUILTIN"), []byte(b.String()))
 }
 
 func (b Builtin) String() string {

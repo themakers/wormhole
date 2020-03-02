@@ -44,19 +44,22 @@ func (s *Struct) Select(name string) (Type, error) {
 	return res, nil
 }
 
-func (s *Struct) Hash() string {
+func (s *Struct) Hash() Sum {
 	return s.hash(map[Type]bool{})
 }
 
-func (s *Struct) hash(prev map[Type]bool) string {
-	res := sum("STRUCT")
-	for _, field := range s.Fields {
-		res += sum(field.Name) + field.Type.hash(prev) + sum(field.Tag)
+func (str *Struct) hash(prev map[Type]bool) Sum {
+	s := make([][]byte, 1+4*len(str.Fields))
+	s[0] = []byte("STRUCT")
+
+	i := 1
+	for _, field := range str.Fields {
+		s += sum(field.Name) + field.Type.hash(prev) + sum(field.Tag)
 		if field.Embedded {
-			res += "EMBEDDED"
+			s += "EMBEDDED"
 		}
 	}
-	return sum(res)
+	return sum(s)
 }
 
 func (s *Struct) String() string {

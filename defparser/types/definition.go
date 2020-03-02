@@ -52,29 +52,20 @@ func (d *Definition) Select(name string) (Type, error) {
 	}
 }
 
-func (d *Definition) Hash() string {
+func (d *Definition) Hash() Sum {
 	return d.hash(map[Type]bool{})
 }
 
-func (d *Definition) hash(prev map[Type]bool) string {
-	if d.Std == true {
-		return sum(sum("DEF") +
-			sum("STD") +
-			d.Package.hash(prev) +
-			sum(d.Name),
-		)
-	}
+func (d *Definition) hash(prev map[Type]bool) Sum {
+	pkg := d.Package.hash(prev)
 
 	if prev[d] || d.Declaration == nil {
-		return sum(sum("DEF") + d.Package.hash(prev) + sum(d.Name))
+		return sum([]byte("DEF"), pkg[:], []byte(d.Name))
 	}
 
 	prev[d] = true
-	return sum(sum("DEF") +
-		sum(d.Package.Info.PkgPath) +
-		sum(d.Name) +
-		d.Declaration.hash(prev),
-	)
+	t := d.Declaration.hash(prev)
+	return sum([]byte("DEF"), pkg[:], []byte(d.Name), t[:])
 }
 
 func (d *Definition) String() string {
