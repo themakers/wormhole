@@ -31,43 +31,36 @@ func (p *Package) Hash() Sum {
 }
 
 func (p *Package) hash(prev map[Type]bool) Sum {
-	s := make(
-		[][]byte,
-		3+len(p.Imports)+len(p.Definitions)+len(p.Methods),
-	)
-	s[0] = []byte("PACKAGE")
-	if p.Info.Std {
-		s[1] = []byte("STD")
-	} else {
-		s[1] = []byte("NON-STD")
-	}
-	s[2] = []byte(p.Info.PkgPath)
-
 	if prev[p] {
-		return sum(s...)
+		return sum(
+			"PACKAGE",
+			p.Info.PkgPath,
+			p.Info.Std,
+		)
 	}
-	prev[p] = true
 
-	i := 3
+	sums := []interface{}{
+		"PACKAGE",
+		p.Info.PkgPath,
+		p.Info.Std,
+	}
+
+	sums = append(sums, "IMPORTS")
 	for _, imp := range p.Imports {
-		v := imp.Package.hash(prev)
-		s[i] = v[:]
-		i++
+		sums = append(sums, imp.Package.hash(prev))
 	}
 
-	for _, def := range p.Definitions {
-		v := def.hash(prev)
-		s[i] = v[:]
-		i++
-	}
-
+	sums = append(sums, "METHODS")
 	for _, meth := range p.Methods {
-		v := meth.hash(prev)
-		s[i] = v[:]
-		i++
+		sums = append(sums, meth.hash(prev))
 	}
 
-	return sum(s...)
+	sums = append(sums, "DEFS")
+	for _, def := range p.Definitions {
+		sums = append(sums, def.hash(prev))
+	}
+
+	return sum(sums...)
 }
 
 func (p *Package) String() string {

@@ -1,16 +1,32 @@
 package register
 
-import "fmt"
+import (
+	"go/token"
+)
 
-type ErrUnableRegistrate struct {
-	DefName     string
-	PackagePath string
+type (
+	Error interface {
+		Pos() Pos
+		error
+	}
+
+	Pos struct {
+		From token.Position
+		To   token.Position
+	}
+)
+
+var _ Error = ErrBadSyntax{}
+
+type ErrBadSyntax struct {
+	from token.Position
+	to   token.Position
 }
 
-func (e ErrUnableRegistrate) Error() string {
-	return fmt.Sprintf(
-		"unable to registrate definition \"%s\" in package \"%s\"",
-		e.DefName,
-		e.PackagePath,
-	)
+func (e ErrBadSyntax) Error() string {
+	return "bad syntax in type declaration"
+}
+
+func (e ErrBadSyntax) Pos() Pos {
+	return Pos{e.from, e.to}
 }

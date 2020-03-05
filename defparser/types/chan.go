@@ -11,8 +11,7 @@ func (c *Chan) Hash() Sum {
 }
 
 func (c *Chan) hash(prev map[Type]bool) Sum {
-	t := c.Type.hash(prev)
-	return sum([]byte("CHAN"), t[:])
+	return sum("CHAN", c.hash(prev))
 }
 
 func (c *Chan) String() string {

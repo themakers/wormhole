@@ -2,18 +2,22 @@ package register
 
 import (
 	"fmt"
+	"go/token"
 	"sort"
 
 	"github.com/themakers/wormhole/defparser/types"
 )
 
 type Register struct {
-	ST State
+	ST        State
+	UsedNames map[string]bool
+	FileSet   *token.FileSet
 	*types.Package
 }
 
 type NewRegisterOpts struct {
 	State   State
+	FileSet *token.FileSet
 	Info    types.PackageInfo
 	Imports []types.Import
 }
@@ -41,7 +45,9 @@ func NewRegister(opts NewRegisterOpts) *Register {
 	}
 
 	return &Register{
-		ST: opts.State,
+		ST:        opts.State,
+		UsedNames: map[string]bool{},
+		FileSet:   opts.FileSet,
 		Package: &types.Package{
 			Info:           opts.Info,
 			Imports:        imports,

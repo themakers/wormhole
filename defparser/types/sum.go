@@ -13,8 +13,8 @@ func (s Sum) String() string {
 }
 
 func sum(args ...interface{}) Sum {
-	sums := make([]byte, len(args)*32)
-	for i, arg := range args {
+	var sums []byte
+	for _, arg := range args {
 		var s Sum
 		switch a := arg.(type) {
 		case int:
@@ -37,24 +37,19 @@ func sum(args ...interface{}) Sum {
 
 		case Sum:
 			s = a
+
+		default:
+			panic(
+				fmt.Errorf(
+					"failed to take hash sum of \"%v\" of type \"%T\"",
+					a,
+					a,
+				),
+			)
 		}
+
+		sums = append(sums, s[:]...)
 	}
 
-	var length int
-	for _, arg := range args {
-		length += len(arg)
-	}
-
-	var (
-		data = make([]byte, length)
-		i    int
-	)
-	for _, arg := range args {
-		for _, b := range arg {
-			data[i] = b
-			i++
-		}
-	}
-
-	return sha256.Sum256(data)
+	return sha256.Sum256(sums)
 }

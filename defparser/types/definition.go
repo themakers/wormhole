@@ -1,5 +1,7 @@
 package types
 
+import "fmt"
+
 var (
 	_ Type     = &Definition{}
 	_ Selector = &Definition{}
@@ -31,11 +33,6 @@ type Definition struct {
 	// Is this definition from standart library. Definitions with Std == true
 	// always have nil Declaration and Methods fields.
 	Std bool
-
-	Underlying []struct {
-		name string
-		t    Type
-	}
 }
 
 func (d *Definition) Select(name string) (Type, error) {
@@ -57,15 +54,23 @@ func (d *Definition) Hash() Sum {
 }
 
 func (d *Definition) hash(prev map[Type]bool) Sum {
-	pkg := d.Package.hash(prev)
+	if prev[d] {
+		return sum("DEF", d.Name, "FROM", d.Package.hash(prev), "SELF")
+	}
 
-	if prev[d] || d.Declaration == nil {
-		return sum([]byte("DEF"), pkg[:], []byte(d.Name))
+	if d.Declaration == nil {
+		panic(fmt.Errorf("definition \"%s\" have a nil declaration", d))
 	}
 
 	prev[d] = true
-	t := d.Declaration.hash(prev)
-	return sum([]byte("DEF"), pkg[:], []byte(d.Name), t[:])
+	return sum(
+		"DEF",
+		d.Name,
+		"FROM",
+		d.Package.hash(prev),
+		"DECL",
+		d.Declaration.hash(prev),
+	)
 }
 
 func (d *Definition) String() string {

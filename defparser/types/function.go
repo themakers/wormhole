@@ -22,23 +22,14 @@ func (f *Function) Hash() Sum {
 }
 
 func (f *Function) hash(prev map[Type]bool) Sum {
-	s := make([][]byte, len(f.Args)+len(f.Results)+2)
-	s[0] = []byte("FUNC")
-
-	i := 1
+	s := []interface{}{"FUNC"}
 	for _, arg := range f.Args {
-		v := arg.Type.hash(prev)
-		s[i] = v[:]
-		i++
+		s = append(s, arg.Type.hash(prev))
 	}
 
-	s[i] = []byte("RETURNS")
-	i++
-
+	s = append(s, "RETURNS")
 	for _, result := range f.Results {
-		v := result.Type.hash(prev)
-		s[i] = v[:]
-		i++
+		s = append(s, result.Type.hash(prev))
 	}
 
 	return sum(s...)

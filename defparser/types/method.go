@@ -16,13 +16,7 @@ func (m *Method) Hash() Sum {
 }
 
 func (m *Method) hash(prev map[Type]bool) Sum {
-	r := m.Receiver.hash(prev)
-	s := m.Signature.hash(prev)
-	return sum(
-		[]byte("METHOD"),
-		r[:],
-		s[:],
-	)
+	return sum("METHOD", m.Receiver.hash(prev), m.Signature.hash(prev))
 }
 
 func (m *Method) String() string {

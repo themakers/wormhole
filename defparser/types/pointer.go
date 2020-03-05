@@ -11,8 +11,10 @@ func (p *Pointer) Hash() Sum {
 }
 
 func (p *Pointer) hash(prev map[Type]bool) Sum {
-	v := p.Type.hash(prev)
-	return sum([]byte("POINTER"), v[:])
+	return sum(
+		"POINTER",
+		p.Type.hash(prev),
+	)
 }
 
 func (p *Pointer) String() string {

@@ -28,15 +28,10 @@ func (i *Interface) Hash() Sum {
 }
 
 func (i *Interface) hash(prev map[Type]bool) Sum {
-	s := make([][]byte, len(i.Methods)*2+1)
-	s[0] = []byte("INTERFACE")
-
-	for i, meth := range i.Methods {
-		s[i*2+1] = []byte(meth.Name)
-		v := meth.Signature.hash(prev)
-		s[i*2+2] = v[:]
+	s := []interface{}{"INTERFACE"}
+	for _, meth := range i.Methods {
+		s = append(s, meth.hash(prev))
 	}
-
 	return sum(s...)
 }
 

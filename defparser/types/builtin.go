@@ -25,7 +25,7 @@ func (b Builtin) Hash() Sum {
 }
 
 func (b Builtin) hash(_ map[Type]bool) Sum {
-	return sum([]byte("BUILTIN"), []byte(b.String()))
+	return sum("BUILTIN", b.String())
 }
 
 func (b Builtin) String() string {

@@ -1,9 +1,5 @@
 package types
 
-import (
-	"encoding/binary"
-)
-
 var _ Type = &Array{}
 
 type Array struct {
@@ -16,12 +12,7 @@ func (a *Array) Hash() Sum {
 }
 
 func (a *Array) hash(prev map[Type]bool) Sum {
-	l := make([]byte, 8)
-	binary.LittleEndian.PutUint64(l, a.Len)
-
-	t := a.Type.hash(prev)
-
-	return sum([]byte("ARRAY"), l, t[:])
+	return sum("ARRAY", a.Len, "OF", a.Type.hash(prev))
 }
 
 func (a *Array) String() string {

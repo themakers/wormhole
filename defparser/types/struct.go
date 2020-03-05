@@ -49,17 +49,21 @@ func (s *Struct) Hash() Sum {
 }
 
 func (str *Struct) hash(prev map[Type]bool) Sum {
-	s := make([][]byte, 1+4*len(str.Fields))
-	s[0] = []byte("STRUCT")
-
-	i := 1
-	for _, field := range str.Fields {
-		s += sum(field.Name) + field.Type.hash(prev) + sum(field.Tag)
-		if field.Embedded {
-			s += "EMBEDDED"
-		}
+	sums := []interface{}{
+		"STRUCT",
 	}
-	return sum(s)
+
+	for _, field := range str.Fields {
+		sums = append(sums,
+			"FIELD",
+			field.Name,
+			field.Type.hash(prev),
+			field.Tag,
+			field.Embedded,
+		)
+	}
+
+	return sum(sums...)
 }
 
 func (s *Struct) String() string {

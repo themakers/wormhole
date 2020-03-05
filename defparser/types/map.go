@@ -12,9 +12,7 @@ func (m *Map) Hash() Sum {
 }
 
 func (m *Map) hash(prev map[Type]bool) Sum {
-	k := m.Key.hash(prev)
-	v := m.Value.hash(prev)
-	return sum([]byte("MAP"), k[:], v[:])
+	return sum("MAP", m.Key.hash(prev), m.Value.hash(prev))
 }
 
 func (m *Map) String() string {

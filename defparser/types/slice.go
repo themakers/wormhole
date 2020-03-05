@@ -11,8 +11,10 @@ func (s *Slice) Hash() Sum {
 }
 
 func (s *Slice) hash(prev map[Type]bool) Sum {
-	v := s.Type.hash(prev)
-	return sum([]byte("SLICE"), v[:])
+	return sum(
+		"SLICE",
+		s.Type.hash(prev),
+	)
 }
 
 func (s *Slice) String() string {
